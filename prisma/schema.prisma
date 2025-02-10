@@ -7,12 +7,560 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========================
+// Enums
+// ========================
+enum AuditActionType {
+  // Auth Events
+  USER_SIGNED_UP
+  USER_SIGNED_IN
+  // Role Events
+  ROLE_ASSIGNED
+  ROLE_MODIFIED
+  ROLE_REVOKED
+  // Requisition Events
+  REQUISITION_SUBMITTED
+  REQUISITION_APPROVED
+  REQUISITION_DECLINED
+  REQUISITION_PROCESSED
+  // Inventory Events
+  INVENTORY_CREATED
+  INVENTORY_UPDATED
+  INVENTORY_STATUS_CHANGED
+  INVENTORY_DISPOSED
+  // Maintenance Events
+  MAINTENANCE_TICKET_CREATED
+  MAINTENANCE_TICKET_UPDATED
+  MAINTENANCE_TICKET_RESOLVED
+  // Stock Events
+  STOCK_RECEIVED
+  STOCK_ISSUED
+  STOCK_ADJUSTED
+  // Supplier Events
+  SUPPLIER_CREATED
+  SUPPLIER_UPDATED
+  SUPPLIER_DELETED
+  // System Events
+  USER_DELETED
+  ITEM_DELETED
+}
+
+enum DeviceType {
+  LAPTOP
+  PRINTER
+  UPS
+  DESKTOP
+  OTHER
+}
+
+enum ItemClass {
+  FIXED_ASSET
+  CONSUMABLE
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RequisitionStatus {
+  SUBMITTED
+  PENDING_DEPT_APPROVAL
+  PENDING_ITD_APPROVAL
+  APPROVED
+  DECLINED
+  PROCESSED
+}
+
+enum InventoryStatus {
+  ACTIVE
+  INACTIVE
+  NON_FUNCTIONAL
+  OBSOLETE
+  DISPOSED
+}
+
+enum IssueType {
+  HARDWARE
+  SOFTWARE
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ========================
+// Core Models
+// ========================
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      String
+  id             String             @id @default(uuid())
+  email          String             @unique
+  name           String?
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  // Relationships
+  roles          UserRole[]         @relation("UserRoles")
+   performedAudits AuditLog[]   @relation("PerformedBy")
+  affectedAudits  AuditLog[]   @relation("AffectedUser")
+  requisitions   Requisition[] @relation("UserRequisitions")
+   deptApprovals    Requisition[]  @relation("DeptApprover")
+  itdApprovals     Requisition[]  @relation("ITDApprover") 
+  stockReceived  StockReceived[] @relation("UserStockReceived")
+  stockIssued    StockIssued[] @relation("UserStockIssued")
+  maintenanceTicketsReceived MaintenanceTicket[] @relation("TechnicianReceived")
+  maintenanceTicketsReturned MaintenanceTicket[] @relation("TechnicianReturned")
+    maintenanceTicketsAudited  MaintenanceTicket[]  @relation("AuditedBy") 
+
+
+  // Back-relations for Inventory
+  markedObsoleteInventories Inventory[] @relation("MarkedObsoleteBy")
+  disposedInventories       Inventory[] @relation("DisposedBy")
+
+  @@map("users")
+}
+
+// ========================
+// Enhanced Audit Logging
+// ========================
+model AuditLog {
+  id            String           @id @default(uuid())
+  actionType    AuditActionType
+  performedBy   User?            @relation("PerformedBy", fields: [performedById], references: [id])
+  performedById String?
+  affectedUser  User?            @relation("AffectedUser", fields: [affectedUserId], references: [id])
+  affectedUserId String?
+  entityType    String?
+  entityId      String?
+  oldState      Json?
+  newState      Json?
+  ipAddress     String?
+  details       Json?
+  createdAt     DateTime         @default(now())
+
+  @@index([actionType])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ========================
+// Role & Permission System
+// ========================
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  users       UserRole[]
+  permissions RolePermission[]
+  deletedAt   DateTime?
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user      User     @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  roles       RolePermission[]
+  deletedAt   DateTime?
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  @@map("role_permissions")
+}
+
+// ========================
+// Inventory Enhancements
+// ========================
+
+model Inventory {
+  id               String           @id @default(uuid())
+  assetId          String           @unique
+  itItemId         String
+  itItem          ITItem            @relation("InventoryITItem",fields: [itItemId], references: [id])
+  // Link to StockReceived entry that created this inventory item
+  stockReceivedId  String
+  stockReceived    StockReceived    @relation("InventoryStockReceived",fields: [stockReceivedId], references: [id])
+  // User Information
+  userFullName     String
+  userDepartment   String
+  userUnit         String?          // Optional
+  roomNo           String?          // Optional
+  lpoReference     String?         // Optional
+  supplierId       String?
+  supplier         Supplier?        @relation("SupplierInventory", fields: [supplierId], references: [id])
+  
+  // Inventory Details
+  warrantyPeriod   Int              // in months
+  purchaseDate     DateTime
+  status           InventoryStatus
+  statusChangedAt  DateTime?
+  
+  // Obsolescence and Disposal
+  markedObsoleteBy User?            @relation("MarkedObsoleteBy", fields: [markedObsoleteById], references: [id])
+  markedObsoleteById String?
+  disposedBy       User?            @relation("DisposedBy", fields: [disposedById], references: [id])
+  disposedById     String?
+  disposalDate     DateTime?
+  
+  // Additional Information
+  remarks          String?         // Optional
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  // Indexes
+  @@index([itItemId])
+  @@index([status])
+
+  // Device-specific relationships
+  desktopDetails   DesktopDetails?
+  printerDetails   PrinterDetails?
+  upsDetails       UPSDetails?
+  laptopDetails    LaptopDetails?
+  otherDetails     OtherDetails?
+
+  maintenanceTickets MaintenanceTicket[]  @relation("InventoryMaintenanceTicket") 
+
+  @@map("inventory")
+}
+
+// Device-specific models (Desktop-specific fields)
+model DesktopDetails {
+  id               String    @id @default(uuid())
+  inventoryId      String     @unique
+  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  
+  // Desktop Specifications
+  desktopBrand              String?
+  desktopModel              String?
+  desktopSerialNumber       String?
+  desktopMonitorBrand       String?
+  desktopMonitorModel       String?
+  desktopMonitorSerialNumber String?
+  desktopMacAddress         String?
+  desktopProcessorType      String?
+  desktopMemorySize         String? // e.g., "16GB"
+  desktopStorageDriveType   String? // e.g., "SSD", "HDD"
+  desktopStorageDriveSize   String? // e.g., "512GB"
+  desktopOperatingSystem    String?
+  desktopEndpointSecurity    Boolean?
+  desktopSpiceworksMonitoring Boolean?
+  deletedAt        DateTime?
+
+  @@map("desktop_details")
+}
+
+// Device-specific models (Laptop-specific fields)
+model LaptopDetails {
+  id               String    @id @default(uuid())
+  inventoryId      String     @unique
+  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  
+  // Laptop Specifications
+  laptopBrand               String?
+  laptopModel               String?
+  laptopSerialNumber        String?
+  laptopMacAddress          String?
+  laptopProcessorType       String?
+  laptopMemorySize          String? // e.g., "16GB"
+  laptopStorageDriveType    String? // e.g., "SSD", "HDD"
+  laptopStorageDriveSize    String? // e.g., "512GB"
+  laptopOperatingSystem     String?
+  laptopEndpointSecurity     Boolean?
+  laptopSpiceworksMonitoring Boolean?
+  deletedAt        DateTime?
+
+  @@map("laptop_details")
+}
+
+// Device-specific models (Printer-specific fields)
+model PrinterDetails {
+  id               String    @id @default(uuid())
+  inventoryId      String     @unique
+  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  
+  // Printer Specifications
+  printerBrand              String?
+  printerModel              String?
+  printerSerialNumber       String?
+  printerMacAddress         String?
+  printerTonerNumber        String?
+  deletedAt        DateTime?
+
+  @@map("printer_details")
+}
+
+// Device-specific models (UPS-specific fields)
+model UPSDetails {
+  id               String    @id @default(uuid())
+  inventoryId      String     @unique
+  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  
+  // UPS Specifications
+  upsBrand                  String?
+  upsModel                  String?
+  upsSerialNumber           String?
+  deletedAt        DateTime?
+
+  @@map("ups_details")
+}
+
+// Device-specific models (Other-specific fields)
+model OtherDetails {
+  id               String    @id @default(uuid())
+  inventoryId      String     @unique
+  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  
+  // Other Device Specifications
+  deviceType                String? // e.g., "Router", "Switch", etc.
+  otherBrand                String?
+  otherModel                String?
+  otherSerialNumber         String?
+  otherMacAddress           String?
+  deletedAt        DateTime?
+
+  @@map("other_details")
+}
+
+// ========================
+// Soft Delete & Cascading
+// ========================
+model Supplier {
+  id             String    @id @default(uuid())
+  supplierID     String    @unique  // e.g., "SUP-001"
+  name           String
+  contactDetails String?
+  lpoReference   String    // e.g., "GCB/PD/FA/2/" (validated via regex in business logic)
+  lpoDate        DateTime
+  voucherNumber  String    // e.g., "0005453" (validated via regex in business logic)
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+inventories    Inventory[] @relation("SupplierInventory") 
+itItems        ITItem[] 
+stockReceived  StockReceived[]  @relation("SupplierStockReceived")
+  @@map("suppliers")
+  @@index([lpoReference])
+  @@index([voucherNumber])
+}
+
+model ITItem {
+  id              String    @id @default(uuid())
+  itemID          String    @unique  // e.g., "IT-001"
+  deviceType      DeviceType
+  itemClass       ItemClass
+  brand           String
+  model           String
+  defaultWarranty Int       // Warranty period (months)
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+
+  // IT Audit slides last trimester weekend 
+  validationRules Json?     // Dynamic rules (e.g., for MAC address regex)
+  specifications  Json?     // Additional specifications stored as JSON
+   requisitions    Requisition[]
+  inventories     Inventory[] @relation("InventoryITItem")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+stockReceived   StockReceived[] @relation("ITItemStockReceived")
+stock          Stock?    @relation("ITItemStock")
+ stockIssued     StockIssued[] @relation("ITItemStockIssued")
+
+  @@map("it_items")
+  @@index([deviceType])
+}
+
+model Requisition {
+  id                  String              @id @default(uuid())
+  requisitionID       String              @unique  // e.g., "REQ-2023-001"
+  staffId             String
+  staff               User                @relation("UserRequisitions", fields: [staffId], references: [id], map: "requisition_staff_fkey")
+  itItemId            String
+  itItem              ITItem              @relation(fields: [itItemId], references: [id], map: "requisition_itItem_fkey")
+  itemDescription     String             
+  quantity            Int                 // ≥ 1 for all assets
+  urgency             Urgency
+  purpose             String
+  unit                String              // Auto-populated
+  department          String              // Auto-populated
+  deptApproverId      String?
+  deptApprover      User?       @relation("DeptApprover", fields: [deptApproverId], references: [id], map: "requisition_deptApprover_fkey")
+  itdApproverId       String?
+  itdApprover       User?       @relation("ITDApprover", fields: [itdApproverId], references: [id], map: "requisition_itdApprover_fkey") 
+  status              RequisitionStatus
+  declineReason       String?             // Mandatory if declined
+  approvalSignatures  Json?               // Digital signatures from Approval Managers
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  deletedAt           DateTime?
+
+stockIssued        StockIssued[]        @relation("RequisitionStockIssued")
+
+  @@map("requisitions")
+  @@index([staffId])
+  @@index([status])
+}
+
+model StockReceived {
+  id               String     @id @default(uuid())
+  lpoReference     String     // Linked to Supplier (validated via business logic)
+  voucherNumber    String     // Store Requisition & Issue Voucher No.
+  lpoDate          DateTime
+  itItemId         String
+   itItem           ITItem     @relation("ITItemStockReceived", fields: [itItemId], references: [id])
+  quantityReceived Int
+  supplierId       String
+  supplier         Supplier   @relation("SupplierStockReceived", fields: [supplierId], references: [id])
+  warrantyPeriod   Int        // in months
+  receivedById     String
+  receivedBy       User       @relation("UserStockReceived", fields: [receivedById], references: [id])
+  dateReceived     DateTime
+  remarks          String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  inventories      Inventory[] @relation("InventoryStockReceived")
+  stockBatch       StockBatch?  @relation("StockReceivedStockBatch")
+
+  @@map("stock_received")
+  @@index([lpoReference])
+  @@index([voucherNumber])
+  @@index([itItemId])
+  @@index([supplierId])
+}
+
+
+model Stock {
+  id              String    @id @default(uuid())
+  itItemId        String    @unique
+  itItem          ITItem    @relation("ITItemStock", fields: [itItemId], references: [id])
+  quantityInStock Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  version         Int       @default(1) @map("version")
+
+  @@map("stocks")
+  @@index([itItemId])
+  @@index([quantityInStock])
+  @@index([itItemId, quantityInStock])
+}
+
+model StockIssued {
+  id               String      @id @default(uuid())
+  requisitionId    String
+  requisition      Requisition @relation("RequisitionStockIssued", fields: [requisitionId], references: [id])
+  stockBatchId     String
+  stockBatch       StockBatch  @relation("StockBatchStockIssued", fields: [stockBatchId], references: [id], onDelete: Cascade)
+  itItemId         String
+  itItem           ITItem      @relation("ITItemStockIssued", fields: [itItemId], references: [id])
+  quantityIssued   Int         // Must be ≤ quantity requested in the corresponding requisition
+  requestDate      DateTime
+  issuedById       String
+  issuedBy         User        @relation("UserStockIssued", fields: [issuedById], references: [id])
+  issueDate        DateTime
+  disbursementNote String?     // For audit purposes
+  remarks          String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+
+  @@index([requisitionId])
+  @@index([itItemId])
+  @@index([issuedById])
+    @@index([stockBatchId]) 
+  @@index([requestDate])
+   @@index([requisitionId, stockBatchId]) 
+
+  @@map("stock_issued")
+}
+
+model MaintenanceTicket {
+  id                     String      @id @default(uuid())
+  ticketId               String      @unique  // e.g., "TKT-001"
+  assetId                String
+  inventory              Inventory   @relation("InventoryMaintenanceTicket", fields: [assetId], references: [id])
+  technicianReceivedById String
+  technicianReceived     User        @relation("TechnicianReceived", fields: [technicianReceivedById], references: [id])
+  receivedAt             DateTime    // Date and time the machine was received
+  userFullName           String      // Name of the user reporting the issue
+  issueType              IssueType
+  unit                   String
+  department             String
+  roomNo                 String
+  description            String
+  priority               Priority
+  actionTaken            String?     // e.g., Repair, Update, Replacement, etc.
+  technicianReturnedById String?
+  technicianReturned     User?       @relation("TechnicianReturned", fields: [technicianReturnedById], references: [id])
+  dateLogged             DateTime    @default(now())
+  dateResolved           DateTime?
+  auditedBy              User?       @relation("AuditedBy", fields: [auditedById], references: [id])
+  auditedById            String?
+  auditDate              DateTime?
+  remarks                String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  deletedAt              DateTime?
+  
+  @@index([assetId])
+  @@index([technicianReceivedById])
+  @@index([priority])
+   @@index([auditedById]) 
+    @@index([department])
+    @@index([department, unit])
+      @@index([dateLogged])
+     @@index([priority, dateLogged])
+  @@map("maintenance_tickets")
+}
+
+// ========================
+// Transactional Stock Tracking
+// ========================
+model StockBatch {
+  id             String         @id @default(uuid())
+  stockReceived  StockReceived  @relation("StockReceivedStockBatch",fields: [stockReceivedId], references: [id])
+  stockReceivedId String @unique
+  quantity       Int
+  warrantyPeriod Int
+  expiryDate     DateTime?
+  deletedAt      DateTime?
+
+   stockIssued   StockIssued[] @relation("StockBatchStockIssued") 
+
+  @@map("stock_batches")
+  @@index([stockReceivedId])
 }
