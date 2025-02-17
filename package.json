@@ -25,11 +25,14 @@
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/typeorm": "^11.0.0",
-    "@prisma/client": "^6.2.1",
+    "@prisma/client": "^6.3.1",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client"]
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
@@ -54,6 +57,9 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.3"
+  },
+  "prisma": {
+    "seed": "ts-node seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [

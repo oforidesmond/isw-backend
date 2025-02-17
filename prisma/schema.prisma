@@ -211,9 +211,9 @@ model Inventory {
   // User Information
   userFullName     String
   userDepartment   String
-  userUnit         String?          // Optional
-  roomNo           String?          // Optional
-  lpoReference     String?         // Optional
+  userUnit         String?          
+  roomNo           String?          
+  lpoReference     String?         
   supplierId       String?
   supplier         Supplier?        @relation("SupplierInventory", fields: [supplierId], references: [id])
   
@@ -256,7 +256,7 @@ model Inventory {
 model DesktopDetails {
   id               String    @id @default(uuid())
   inventoryId      String     @unique
-  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  inventory        Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   // Desktop Specifications
   desktopBrand              String?
@@ -282,7 +282,7 @@ model DesktopDetails {
 model LaptopDetails {
   id               String    @id @default(uuid())
   inventoryId      String     @unique
-  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  inventory        Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   // Laptop Specifications
   laptopBrand               String?
@@ -305,7 +305,7 @@ model LaptopDetails {
 model PrinterDetails {
   id               String    @id @default(uuid())
   inventoryId      String     @unique
-  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  inventory        Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   // Printer Specifications
   printerBrand              String?
@@ -322,7 +322,7 @@ model PrinterDetails {
 model UPSDetails {
   id               String    @id @default(uuid())
   inventoryId      String     @unique
-  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  inventory        Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   // UPS Specifications
   upsBrand                  String?
@@ -337,7 +337,7 @@ model UPSDetails {
 model OtherDetails {
   id               String    @id @default(uuid())
   inventoryId      String     @unique
-  inventory        Inventory @relation(fields: [inventoryId], references: [id])
+  inventory        Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   // Other Device Specifications
   deviceType                String? // e.g., "Router", "Switch", etc.
@@ -381,7 +381,7 @@ model ITItem {
   itemClass       ItemClass
   brand           String
   model           String
-  defaultWarranty Int       // Warranty period (months)
+  defaultWarranty Int?       // Warranty period (months)
   supplierId      String?
   supplier        Supplier? @relation(fields: [supplierId], references: [id])
 
@@ -407,19 +407,19 @@ model Requisition {
   requisitionID       String              @unique  // e.g., "REQ-2023-001"
   staffId             String
   staff               User                @relation("UserRequisitions", fields: [staffId], references: [id], map: "requisition_staff_fkey")
-  itItemId            String
-  itItem              ITItem              @relation(fields: [itItemId], references: [id], map: "requisition_itItem_fkey")
+  itItemId            String?
+  itItem              ITItem?              @relation(fields: [itItemId], references: [id], map: "requisition_itItem_fkey")
   itemDescription     String             
   quantity            Int                 // ≥ 1 for all assets
-  urgency             Urgency
+  urgency             Urgency?
   purpose             String
-  unit                String              // Auto-populated
+  unit                String?              // Auto-populated
   department          String              // Auto-populated
   deptApproverId      String?
   deptApprover      User?       @relation("DeptApprover", fields: [deptApproverId], references: [id], map: "requisition_deptApprover_fkey")
   itdApproverId       String?
   itdApprover       User?       @relation("ITDApprover", fields: [itdApproverId], references: [id], map: "requisition_itdApprover_fkey") 
-  status              RequisitionStatus
+  status              RequisitionStatus   @default(SUBMITTED)
   declineReason       String?             // Mandatory if declined
   approvalSignatures  Json?               // Digital signatures from Approval Managers
   createdAt           DateTime            @default(now())
@@ -515,12 +515,12 @@ model MaintenanceTicket {
   inventory              Inventory   @relation("InventoryMaintenanceTicket", fields: [assetId], references: [id])
   technicianReceivedById String
   technicianReceived     User        @relation("TechnicianReceived", fields: [technicianReceivedById], references: [id])
-  receivedAt             DateTime    // Date and time the machine was received
+  receivedAt             DateTime    @default(now())// Date and time the machine was received
   userFullName           String      // Name of the user reporting the issue
   issueType              IssueType
-  unit                   String
+  unit                   String?
   department             String
-  roomNo                 String
+  roomNo                 String?
   description            String
   priority               Priority
   actionTaken            String?     // e.g., Repair, Update, Replacement, etc.
