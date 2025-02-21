@@ -1,6 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { SupervisorService } from './supervisor.service';
-import { SupervisorController } from './supervisor.controller';
+import { ItdApprovalManagerService } from './itd-approval-manager.service';
+import { ItdApprovalManagerController } from './itd-approval-manager.controller';
 import { AuthModule } from 'src/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from 'src/prisma/prisma.module';
@@ -16,8 +16,8 @@ import { RolesGuard } from 'src/auth/roles.guard';
     }),
     PrismaModule,
   ],
-  controllers: [SupervisorController],
-  providers: [SupervisorService,JwtAuthGuard, RolesGuard],
-    exports: [SupervisorService],
+  controllers: [ItdApprovalManagerController],
+  providers: [ItdApprovalManagerService,JwtAuthGuard, RolesGuard],
+    exports: [ItdApprovalManagerService],
 })
-export class SupervisorModule {}
+export class ItdApprovalManagerModule {}

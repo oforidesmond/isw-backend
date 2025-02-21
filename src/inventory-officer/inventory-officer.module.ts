@@ -1,6 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { SupervisorService } from './supervisor.service';
-import { SupervisorController } from './supervisor.controller';
+import { InventoryOfficerService } from './inventory-officer.service';
+import { InventoryOfficerController } from './inventory-officer.controller';
 import { AuthModule } from 'src/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from 'src/prisma/prisma.module';
@@ -16,8 +16,8 @@ import { RolesGuard } from 'src/auth/roles.guard';
     }),
     PrismaModule,
   ],
-  controllers: [SupervisorController],
-  providers: [SupervisorService,JwtAuthGuard, RolesGuard],
-    exports: [SupervisorService],
+  controllers: [InventoryOfficerController],
+  providers: [InventoryOfficerService,JwtAuthGuard, RolesGuard],
+    exports: [InventoryOfficerService],
 })
-export class SupervisorModule {}
+export class InventoryOfficerModule {}

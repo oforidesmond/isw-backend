@@ -136,8 +136,10 @@ model Unit {
 
 model User {
   id           String      @id @default(uuid())
+  staffId       String   @unique
   email        String      @unique
   password      String
+  mustResetPassword Boolean @default(true)
   name         String?
   departmentId String?
   department   Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
@@ -240,6 +242,7 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   permissionId String
 
+  @@unique([roleId, permissionId])
   @@map("role_permissions")
 }
 
