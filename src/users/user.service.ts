@@ -15,9 +15,9 @@ export class UserService {
     return this.prisma.user.findMany();
   }
 
-  async findByEmail(email: string) {
+  async findByStaffId(staffId: string) {
     return this.prisma.user.findUnique({
-      where: { email },
+      where: { staffId },
       include: {
         roles: {
           include: {

@@ -387,8 +387,8 @@ model UPSDetails {
 // Device-specific models (Other-specific fields)
 model OtherDetails {
   id          String    @id @default(uuid())
-  inventoryId String    @unique
-  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  inventoryId String?    @unique
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   // Other Device Specifications
   deviceType        String? // e.g., "Router", "Switch", etc.
@@ -515,6 +515,7 @@ model StockReceived {
   @@index([itItemId])
   @@index([supplierId])
   @@map("stock_received")
+  @@unique([lpoReference, voucherNumber, itItemId])
 }
 
 model Stock {
@@ -559,6 +560,7 @@ model StockIssued {
   @@index([requestDate])
   @@index([requisitionId, stockBatchId])
   @@map("stock_issued")
+  @@unique([requisitionId, itItemId])
 }
 
 model MaintenanceTicket {
