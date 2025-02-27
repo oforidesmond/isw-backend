@@ -2,8 +2,7 @@ import { Controller, Post, Body, Request, UseGuards, UnauthorizedException, Req,
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { PrismaService } from 'src/prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
+import { PrismaService } from 'prisma/prisma.service';
 
 
 @Controller('auth')
@@ -26,5 +25,12 @@ export class AuthController {
       throw new BadRequestException('Password must be at least 8 chars with a letter and number');
     }
     return this.authService.resetPassword(req.user.userId, newPassword);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  logout() {
+    // tell frontend to discard token
+    return { message: 'Logged out successfully' };
   }
 }

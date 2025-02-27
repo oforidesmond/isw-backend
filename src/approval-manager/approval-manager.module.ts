@@ -1,11 +1,11 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ApprovalManagerService } from './approval-manager.service';
 import { ApprovalManagerController } from './approval-manager.controller';
-import { AuthModule } from 'src/auth/auth.module';
+import { AuthModule } from 'auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
-import { PrismaModule } from 'src/prisma/prisma.module';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/roles.guard';
+import { PrismaModule } from 'prisma/prisma.module';
+import { JwtAuthGuard } from 'auth/jwt-auth.guard';
+import { RolesGuard } from 'auth/roles.guard';
 
 @Module({
   imports: [

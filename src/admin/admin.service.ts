@@ -1,15 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { MailerService } from '@nestjs-modules/mailer';
+// import * as QRCode from 'qrcode';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private mailerService: MailerService, ) {}
 
   async createUser(data: CreateUserDto) {
-    const randomPassword = crypto.randomBytes(5).toString('hex'); // Generate a 10-char random password
+    const randomPassword = crypto.randomBytes(5).toString('hex'); 
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
     // Check if role exists
@@ -43,9 +45,31 @@ export class AdminService {
       },
     });
 
-    console.log(`User created. Send this password to them securely: ${randomPassword}`);
+    const loginUrl = `http://localhost:3000/auth/login?staffId=${encodeURIComponent(data.staffId)}&tempPassword=${encodeURIComponent(randomPassword)}`;
 
-    return user;
+    let emailFailed = false;
+     // Send email with temp password
+     try {
+     await this.mailerService.sendMail({
+      to: data.email,
+      from: process.env.EMAIL_USER,
+      subject: 'Welcome to ISW App - Your Temporary Password',
+      text: `Hello ${data.name},\n\nYour account has been created.\nStaff ID: ${data.staffId}\nTemporary Password: ${randomPassword}\n\nClick ${loginUrl} to log in and reset your password immediately.\n\nThanks,\ ISW Team`,
+    });
+  } catch (error){
+    console.error(`Failed to send email to ${data.email}:`, error.message);
+    emailFailed = true;
+  }
+    // Generate QR code with staffId and temp password
+    // const qrData = `Staff ID: ${data.staffId}\nTemporary Password: ${randomPassword}`;
+    // const qrCodeUrl = await QRCode.toDataURL(qrData);
+
+    return {
+      message: 'User created' + (emailFailed ? '; email failed to send' : ' and emailed'),
+      userId: user.id,
+      // qrCodeUrl,
+      tempPassword: randomPassword, // remove in prod
+    };
   }
 
 
