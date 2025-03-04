@@ -14,6 +14,8 @@ enum AuditActionType {
   // Auth Events
   USER_SIGNED_UP
   USER_SIGNED_IN
+  USER_LOGGED_OUT
+  USER_PASSWORD_RESET
   // Role Events
   ROLE_ASSIGNED
   ROLE_MODIFIED
@@ -146,6 +148,10 @@ model User {
   unitId       String?
   unit         Unit?       @relation("UserUnit", fields: [unitId], references: [id])
   roomNo       String?
+  resetToken        String?    
+  resetTokenExpiry  DateTime?  
+   securityQuestion   String?     
+  securityAnswerHash String?    
   deletedAt    DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -180,7 +186,7 @@ model AuditLog {
   id             String          @id @default(uuid())
   actionType     AuditActionType
   performedBy    User?           @relation("PerformedBy", fields: [performedById], references: [id])
-  performedById  String?
+  performedById  String
   affectedUser   User?           @relation("AffectedUser", fields: [affectedUserId], references: [id])
   affectedUserId String?
   entityType     String?
@@ -188,6 +194,7 @@ model AuditLog {
   oldState       Json?
   newState       Json?
   ipAddress      String?
+  userAgent      String?
   details        Json?
   createdAt      DateTime        @default(now())
 
