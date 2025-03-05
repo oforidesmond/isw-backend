@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { AuditActionType } from '@prisma/client';
+import { AuditActionType, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
@@ -13,24 +13,27 @@ export class AuditService {
     affectedUserId?: string,
     entityType?: string,
     entityId?: string,
-    oldState?: object,
-    newState?: object,
+    oldState?: Prisma.JsonObject | null,
+    newState?: Prisma.JsonObject | null,
     ipAddress?: string,
     userAgent?: string,
     details?: object,
+    tx?: Prisma.TransactionClient,
   ) {
-    await this.prisma.auditLog.create({
+    const prisma = tx || this.prisma;
+
+    await prisma.auditLog.create({
       data: {
         actionType,
         performedById,
         affectedUserId,
         entityType,
         entityId,
-        oldState: oldState ? JSON.stringify(oldState) : null,
-        newState: newState ? JSON.stringify(newState) : null,
+        oldState,
+        newState,
         ipAddress,
         userAgent,
-        details: details ? JSON.stringify(details) : null,
+        details: details as Prisma.JsonObject,
       },
     });
   }

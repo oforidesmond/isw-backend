@@ -14,11 +14,12 @@ import { ApprovalManagerModule } from './approval-manager/approval-manager.modul
 import { StoresOfficerModule } from './stores-officer/stores-officer.module';
 import { InventoryOfficerModule } from './inventory-officer/inventory-officer.module';
 import { HardwareTechnicianModule } from './hardware-technician/hardware-technician.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [ ConfigModule.forRoot({
-    envFilePath: 'C:/Users/Admin/Documents/ISW/isw-backend/.env', // Match your test path
-    isGlobal: true, // Makes env vars available everywhere
+    envFilePath: 'C:/Users/Admin/Documents/ISW/isw-backend/.env',
+    isGlobal: true, 
   }), 
 
      // MailerModule for sending emails
@@ -34,7 +35,7 @@ import { HardwareTechnicianModule } from './hardware-technician/hardware-technic
       },
     }),
 
-    AuthModule, PrismaModule, UserModule, AdminModule, SupervisorModule, ItdApprovalManagerModule, ApprovalManagerModule, StoresOfficerModule, InventoryOfficerModule, HardwareTechnicianModule],
+    AuthModule, UserModule, PrismaModule, UserModule, AdminModule, SupervisorModule, ItdApprovalManagerModule, ApprovalManagerModule, StoresOfficerModule, InventoryOfficerModule, HardwareTechnicianModule, AuditModule],
   controllers: [AppController],
   providers: [AppService],
 })

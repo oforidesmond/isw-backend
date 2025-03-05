@@ -27,8 +27,8 @@ export class AdminController {
   @Post('user') // Route: POST /admin/user
   @UseGuards(JwtAuthGuard, RolesGuard) 
   @Roles('admin') 
-  async createUser(@Body() createUserDto: CreateUserDto) {
-    return this.adminService.createUser(createUserDto);
+  async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
+    return this.adminService.createUser(createUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
 }
 
