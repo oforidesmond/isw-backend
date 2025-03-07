@@ -11,7 +11,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('profile')
-  @Roles('user')
+  // @Roles('user')
   async getProfile(@Req() req) {
     return this.userService.getProfile(req.user.userId, req.ip, req.headers['user-agent']);
   }
