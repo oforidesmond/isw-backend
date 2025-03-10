@@ -37,4 +37,7 @@ export class CreateRequisitionDto {
   @IsString()
   @IsOptional()
   roomNo?: string;
+
+  @IsString()
+  staffId: string;
 }

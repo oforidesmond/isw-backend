@@ -65,7 +65,7 @@ export class AdminService {
       const loginToken = this.jwtService.sign(loginTokenPayload, {
         expiresIn: '3 days',
       });
-      const loginUrl = `http://localhost:3000/auth/login-with-token?token=${encodeURIComponent(
+      const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(
         loginToken,
       )}`;
 

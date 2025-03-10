@@ -14,7 +14,15 @@ export class UserService {
   async getProfile(userId: string, ipAddress?: string, userAgent?: string ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, staffId: true, name: true, email: true },
+      select: {
+        id: true,
+        staffId: true,
+        name: true,
+        email: true,
+        department: { select: { id: true, name: true } },
+        unit: { select: { id: true, name: true } },
+        roomNo: true,
+      },
     });
 
     if (!user) throw new ForbiddenException('User not found');
@@ -29,6 +37,12 @@ export class UserService {
 
     // Perform creation and logging in a transaction
     return this.prisma.$transaction(async (tx) => {
+
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { unitId: true, roomNo: true },
+      });
+
       const requisition = await tx.requisition.create({
         data: {
           requisitionID,
@@ -38,9 +52,9 @@ export class UserService {
           quantity: dto.quantity,
           urgency: dto.urgency,
           purpose: dto.purpose,
-          unitId: dto.unitId,
+          unitId: dto.unitId || user?.unitId,
           departmentId: dto.departmentId,
-          roomNo: dto.roomNo,
+          roomNo: dto.roomNo || user?.roomNo,
           status: 'PENDING_DEPT_APPROVAL',
         },
       });

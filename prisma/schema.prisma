@@ -148,8 +148,6 @@ model User {
   unitId       String?
   unit         Unit?       @relation("UserUnit", fields: [unitId], references: [id])
   roomNo       String?
-  resetToken        String?    
-  resetTokenExpiry  DateTime?  
    securityQuestion   String?     
   securityAnswerHash String?    
   deletedAt    DateTime?

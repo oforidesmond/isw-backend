@@ -218,25 +218,20 @@ export class AuthService {
         'Invalid security answer. Please contact an Administrator for assistance.',
       );
     }
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour expiry
+     // Generate JWT reset token with 15-minute expiry
+     const resetTokenPayload = { sub: user.id, type: 'reset-password' };
+     const resetToken = this.jwtService.sign(resetTokenPayload, { expiresIn: '15m' }); // Override default 1h
+     const resetUrl = `http://localhost:3001/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    return this.prisma.$transaction(async (prisma) => {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { resetToken, resetTokenExpiry },
-      });
-
-      const resetUrl = `http://localhost:3000/auth/reset-password?token=${resetToken}`;
       try {
         await this.mailerService.sendMail({
           to: email,
           from: process.env.EMAIL_USER,
           subject: 'Reset Your ISW Account Password',
           html: `
-            <p>Hello <span class="math-inline">\{user\.name\},</p\>
-<p\>You requested a password reset\.</p\>
-<p\>Click <a href\="</span>{resetUrl}">here</a> to reset your password. This link expires in 1 hour.</p>
+            <p>Hello ${user.name},</p>
+<p>You requested a password reset</p>
+<p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 1 hour.</p>
             <p>If you didn’t request this, ignore this email.</p>
             <p>Thanks,<br>ISW Team</p>
           `,
@@ -261,19 +256,28 @@ export class AuthService {
       }
 
       return { message: 'Password reset email sent' };
-    });
   }
 
   async resetPasswordWithToken(token: string, newPassword: string, ipAddress?: string, userAgent?: string) {
+    let decoded;
+    try {
+      decoded = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
+    } catch (err) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    if (decoded.type !== 'reset-password') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
     return this.prisma.$transaction(async (prisma) => {
-      const user = await prisma.user.findFirst({
-        where: {
-          resetToken: token,
-          resetTokenExpiry: { gt: new Date() }, // Check if token is still valid
-        },
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.sub },
       });
 
-      if (!user) throw new UnauthorizedException('Invalid or expired reset token');
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await prisma.user.update({
@@ -281,8 +285,6 @@ export class AuthService {
         data: {
           password: hashedPassword,
           mustResetPassword: false,
-          resetToken: null, // Clear token after use
-          resetTokenExpiry: null,
         },
       });
 
