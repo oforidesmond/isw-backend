@@ -2,40 +2,66 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PrismaService } from '../prisma/prisma.service';
+
+interface BaseJwtPayload {
+  sub: string;
+  type?: string;
+}
+
+interface LoginJwtPayload extends BaseJwtPayload {
+  staffId: string;
+  roles: string[];
+  permissions: { resource: string; actions: string[] }[];
+  mustResetPassword: boolean;
+}
+
+interface TempLoginJwtPayload extends BaseJwtPayload {
+  staffId: string;
+  tempPassword: string;
+  type: 'temp-login';
+}
+
+interface ResetPasswordJwtPayload extends BaseJwtPayload {
+  type: 'reset-password';
+}
+
+type JwtPayload = LoginJwtPayload | TempLoginJwtPayload | ResetPasswordJwtPayload;
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly prisma: PrismaService,
-  ) {
+  constructor(private readonly configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
-      passReqToCallback: true, // Key fix: Pass request to validate
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'default_secret',
+      passReqToCallback: true,
     });
   }
 
-  async validate(
-    req: any, // Request object now available
-    payload: { sub: string; staffId: string; roles: string[]; permissions: any[]; mustResetPassword: boolean },
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where: { staffId: payload.staffId },
-      select: { id: true, staffId: true, mustResetPassword: true },
-    });
+  async validate(req: any, payload: JwtPayload) {
+    // Handle reset-password tokens
+    if ('type' in payload && payload.type === 'reset-password') {
+      return { userId: payload.sub };
+    }
 
-    if (!user) throw new UnauthorizedException('Invalid user credentials');
-    if (user.id !== payload.sub) throw new UnauthorizedException('Token subject mismatch');
+    // Handle temp-login tokens
+    if ('type' in payload && payload.type === 'temp-login') {
+      return { userId: payload.sub, staffId: payload.staffId };
+    }
 
-    // Allow /auth/reset-password even if mustResetPassword is true
+    // Handle regular login tokens
+    const loginPayload = payload as LoginJwtPayload;
     const isResetPasswordRoute = req.url === '/auth/reset-password' || req.originalUrl === '/auth/reset-password';
-    if (user.mustResetPassword && !isResetPasswordRoute) {
+    if (loginPayload.mustResetPassword && !isResetPasswordRoute) {
       throw new UnauthorizedException('You must reset your password before proceeding');
     }
 
-    return { userId: user.id, staffId: user.staffId, roles: payload.roles, permissions: payload.permissions };
+    return {
+      userId: loginPayload.sub,
+      staffId: loginPayload.staffId,
+      roles: loginPayload.roles,
+      permissions: loginPayload.permissions,
+      mustResetPassword: loginPayload.mustResetPassword,
+    };
   }
 }

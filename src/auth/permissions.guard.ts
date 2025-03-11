@@ -1,49 +1,35 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(private reflector: Reflector, private prisma: PrismaService) {}
+  constructor(private reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.get<{ resource: string; actions: string[] }[]>('permissions', context.getHandler());
-    if (!requiredPermissions) return true;
+    if (!requiredPermissions) return true; 
 
-    const request = context.switchToHttp().getRequest<{ user: { id: string; permissions?: { resource: string; actions: string[] }[] } }>();
+    const request = context.switchToHttp().getRequest<{
+      user: {
+        id: string;
+        staffId: string;
+        roles: string[];
+        permissions: { resource: string; actions: string[] }[];
+        mustResetPassword: boolean;
+      };
+    }>();
     const user = request.user;
 
-    if (!user) {
-      throw new ForbiddenException('Not authenticated');
+    if (!user || !user.permissions) {
+      throw new ForbiddenException('Not authenticated or no permissions found');
     }
 
-    const userPermissions = await this.getUserPermissions(user.id);
-    request.user.permissions = userPermissions;
-
     return requiredPermissions.every((requiredPermission) =>
-      userPermissions.some(
+      user.permissions.some(
         (perm) =>
           perm.resource === requiredPermission.resource &&
           requiredPermission.actions.every((action) => perm.actions.includes(action)),
       ),
     );
-  }
-
-  private async getUserPermissions(userId: string) {
-    const roles = await this.prisma.userRole.findMany({
-      where: { userId },
-      include: { role: { include: { permissions: { include: { permission: true } } } } },
-    });
-
-    const permissions = new Set<{ resource: string; actions: string[] }>();
-    for (const userRole of roles) {
-      for (const rolePermission of userRole.role.permissions) {
-        permissions.add({
-          resource: rolePermission.permission.resource,
-          actions: rolePermission.permission.actions,
-        });
-      }
-    }
-    return Array.from(permissions);
   }
 }
