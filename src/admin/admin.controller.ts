@@ -1,14 +1,19 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
-import { AdminService } from './admin.service';
+// import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
+import { UserManagementService } from './services/user-management.service';
+import { UserQueryService } from './services/user-query.service';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly userManagementService: UserManagementService,
+    private readonly userQueryService: UserQueryService,
+  ) {}
 
   //get amdin profile
   @Get('profile')
@@ -23,7 +28,7 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async getAllUsers() {
-    return this.adminService.getAllUsers();
+    return this.userQueryService.getAllUsers();
   }
 
   //get deleted users
@@ -31,7 +36,7 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async getAllDeletedUsers() {
-    return this.adminService.getAllDeletedUsers();
+    return this.userQueryService.getAllDeletedUsers();
   }
 
   //create user
@@ -39,15 +44,15 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard) 
   @Roles('admin') 
   async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
-    return this.adminService.createUser(createUserDto, req.user.userId, req.ip, req.headers['user-agent']);
+    return this.userManagementService.createUser(createUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
 //Softdelete user
-  @Patch('user/:staffId')
+  @Patch('user/:staffId/delete')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 async softDeleteUser(@Param('staffId') staffId: string, @Request() req) {
-  return this.adminService.softDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+  return this.userManagementService.softDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
 }
 
 //restore a user
@@ -55,7 +60,7 @@ async softDeleteUser(@Param('staffId') staffId: string, @Request() req) {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 async restoreUser(@Param('staffId') staffId: string, @Request() req) {
-  return this.adminService.restoreUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+  return this.userManagementService.restoreUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
 }
 }
 

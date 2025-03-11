@@ -1,27 +1,9 @@
-import { IsString, IsEmail, MinLength, IsOptional  } from 'class-validator'; // For validation
-
 export class CreateUserDto {
-  @IsString()
-  staffId: string; 
-
-  @IsString()
+  staffId: string;
   name: string;
-
-  @IsEmail()
-  email: string; 
-  
-  @IsString()
-  @IsOptional()
-  departmentId?: string; 
-
-  @IsString()
-  @IsOptional()
-  unitId?: string;
-
-  @IsString()
-  @IsOptional()
-  roomNo?: string;
-
-  @IsString()
+  email: string;
   roleName: string;
+  departmentId?: string;
+  unitId?: string;
+  roomNo?: string;
 }
