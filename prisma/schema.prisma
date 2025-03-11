@@ -20,6 +20,9 @@ enum AuditActionType {
   ROLE_ASSIGNED
   ROLE_MODIFIED
   ROLE_REVOKED
+  //Permission Events
+  PERMISSION_ASSIGNED
+  PERMISSION_REVOKED
   // Requisition Events
   REQUISITION_SUBMITTED
   REQUISITION_APPROVED
@@ -44,6 +47,7 @@ enum AuditActionType {
   SUPPLIER_DELETED
   // System Events
   USER_DELETED
+  USER_RESTORED
   ITEM_DELETED
 }
 
@@ -195,6 +199,7 @@ model AuditLog {
   userAgent      String?
   details        Json?
   createdAt      DateTime        @default(now())
+  deletedAt      DateTime?       @default(now())
 
   @@index([actionType])
   @@index([entityType, entityId])
@@ -220,6 +225,7 @@ model UserRole {
   userId    String
   roleId    String
   createdAt DateTime @default(now())
+  deletedAt DateTime @default(now())
 
   // Relationships
   user User @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
@@ -463,7 +469,7 @@ model Requisition {
   id                 String            @id @default(uuid())
   requisitionID      String            @unique // e.g., "REQ-2023-001"
   staffId            String
-  staff              User              @relation("UserRequisitions", fields: [staffId], references: [id], map: "requisition_staff_fkey")
+  staff              User              @relation("UserRequisitions", fields: [staffId], references: [id],onDelete: Cascade, map: "requisition_staff_fkey")
   itItemId           String?
   itItem             ITItem?           @relation(fields: [itItemId], references: [id], map: "requisition_itItem_fkey")
   itemDescription    String

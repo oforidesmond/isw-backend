@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "user_roles" ADD COLUMN     "deletedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

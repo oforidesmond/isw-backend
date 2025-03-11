@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -18,6 +18,7 @@ export class AdminService {
     private auditService: AuditService,
   ) {}
 
+    //Create User
   async createUser(data: CreateUserDto, adminId: string, ipAddress?: string, userAgent?: string) {
     const randomPassword = crypto.randomBytes(5).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
@@ -120,8 +121,51 @@ export class AdminService {
     });
   }
 
+  //get all active users
   async getAllUsers() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      where: { deletedAt: null }, // Only active users
+      select: {
+        id: true,
+        staffId: true,
+        email: true,
+        name: true,
+        department: { select: { id: true, name: true } },
+        unit: { select: { id: true, name: true } },
+        roomNo: true,
+        roles: {
+          select: {
+            role: { select: { id: true, name: true } },
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  //get all soft deleted users
+  async getAllDeletedUsers() {
+    return this.prisma.user.findMany({
+      where: { deletedAt: { not: null } }, // Only soft-deleted users
+      select: {
+        id: true,
+        staffId: true,
+        email: true,
+        name: true,
+        department: { select: { id: true, name: true } },
+        unit: { select: { id: true, name: true } },
+        roomNo: true,
+        roles: {
+          select: {
+            role: { select: { id: true, name: true } },
+          },
+        },
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async findByStaffId(staffId: string) {
@@ -142,6 +186,126 @@ export class AdminService {
           },
         },
       },
+    });
+  };
+
+  //Delete User
+
+  async softDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      // Find the user to soft-delete
+      const user = await tx.user.findUnique({
+        where: { staffId },
+      });
+  
+      if (!user) {
+        throw new NotFoundException(`User with staffId ${staffId} not found`);
+      }
+
+      if (user.deletedAt) {
+        throw new BadRequestException(`User with staffId ${staffId} is already deleted`);
+      }
+  
+      // Soft-delete the user
+      await tx.user.update({
+        where: { staffId },
+        data: {
+          deletedAt: new Date(), // Set the deletedAt timestamp
+        },
+      });
+  
+      // Soft-delete related user roles
+      await tx.userRole.updateMany({
+        where: { userId: user.id },
+        data: {
+          deletedAt: new Date(),
+        }
+      });
+  
+      // Soft-delete related audit logs where the user is the one who performed the action.
+      await tx.auditLog.updateMany({
+        where: { performedById: user.id },
+        data: { deletedAt: new Date() }
+      });
+  
+      // Soft-delete related audit logs where the user is the affected user.
+      await tx.auditLog.updateMany({
+        where: { affectedUserId: user.id },
+        data: { deletedAt: new Date() }
+      });
+  
+      // Log the action
+      const oldState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+      };
+      await this.auditService.logAction(
+        'USER_DELETED',
+        adminId,
+        user.id,
+        'User',
+        user.id,
+        oldState,
+        null,
+        ipAddress,
+        userAgent,
+        {softDelete: true},
+        tx,
+      );
+  
+      return { message: `User ${staffId} soft-deleted successfully` };
+    });
+  }
+
+  //undelete user
+  async restoreUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { staffId },
+      });
+  
+      if (!user) {
+        throw new NotFoundException(`User with staffId ${staffId} not found`);
+      }
+  
+      if (!user.deletedAt) {
+        throw new BadRequestException(`User with staffId ${staffId} is not deleted`);
+      }
+  
+      const updatedUser = await tx.user.update({
+        where: { staffId },
+        data: { deletedAt: null },
+      });
+  
+      const oldState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+        deletedAt: user.deletedAt ? user.deletedAt.toISOString() : null,
+      };
+      const newState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+        deletedAt: null,
+      };
+  
+      await this.auditService.logAction(
+        'USER_RESTORED',
+        adminId,
+        user.id,
+        'User',
+        user.id,
+        oldState,
+        newState,
+        ipAddress,
+        userAgent,
+        { softRestore: true },
+        tx
+      );
+  
+      return { message: `User ${staffId} has been restored` };
     });
   }
 }

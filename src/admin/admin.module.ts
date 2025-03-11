@@ -7,6 +7,7 @@ import { PrismaModule } from 'prisma/prisma.module';
 import { AuthModule } from 'auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuditService } from 'audit/audit.service';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -16,9 +17,10 @@ import { AuditService } from 'audit/audit.service';
       signOptions: { expiresIn: '1h' },
     }),
     PrismaModule,
+    EventEmitterModule.forRoot(),
   ],
   controllers: [AdminController],
-  providers: [AdminService, JwtAuthGuard, RolesGuard, AuditService],
+  providers: [AdminService, JwtAuthGuard, RolesGuard, AuditService,],
   exports: [AdminService],
 })
 export class AdminModule {}

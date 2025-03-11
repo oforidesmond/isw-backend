@@ -10,6 +10,7 @@ import { Roles } from 'auth/roles.decorator';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  //get amdin profile
   @Get('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -17,19 +18,45 @@ export class AdminController {
     return req.user;
   }
   
-  @Get('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard) 
+  //get all active users
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  getAdminData() {
-    return { message: 'This is only accessible by Admins' };
+  async getAllUsers() {
+    return this.adminService.getAllUsers();
   }
 
+  //get deleted users
+  @Get('users/deleted')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllDeletedUsers() {
+    return this.adminService.getAllDeletedUsers();
+  }
+
+  //create user
   @Post('user') // Route: POST /admin/user
   @UseGuards(JwtAuthGuard, RolesGuard) 
   @Roles('admin') 
   async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
     return this.adminService.createUser(createUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
+
+//Softdelete user
+  @Patch('user/:staffId')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async softDeleteUser(@Param('staffId') staffId: string, @Request() req) {
+  return this.adminService.softDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+}
+
+//restore a user
+@Patch('user/:staffId/restore')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async restoreUser(@Param('staffId') staffId: string, @Request() req) {
+  return this.adminService.restoreUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+}
 }
 
   
