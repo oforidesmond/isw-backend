@@ -59,52 +59,74 @@ export class UserManagementService {
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3 days' });
       const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
 
-      let emailFailed = false;
       try {
         await this.mailerService.sendMail({
-          to: data.email,
-          from: process.env.EMAIL_USER,
-          subject: 'Welcome to ISW App',
-          html: `
-            <p>Hello ${data.name},</p>
-            <p>Your account has been created.</p>
-            <p>Click <a href="${loginUrl}">here</a> to log in and reset your password immediately. Please note that this link is only valid for the next 3 days.</p>
-            <p>If you have any issues, please don't hesitate to contact us.</p>
-            <p>Thanks,<br>ISW Team</p>
-          `,
+            to: data.email,
+            from: process.env.EMAIL_USER,
+            subject: 'Welcome to ISW App',
+            html: `
+                <p>Hello ${data.name},</p>
+                <p>Your account has been created.</p>
+                <p>Click <a href="${loginUrl}">here</a> to log in and reset your password immediately. Please note that this link is only valid for the next 3 days.</p>
+                <p>If you have any issues, please don't hesitate to contact us.</p>
+                <p>Thanks,<br>ISW Team</p>
+            `,
         });
-      } catch (error) {
+
+        const newState: Prisma.JsonObject = {
+            staffId: user.staffId,
+            name: user.name,
+            email: user.email,
+            role: data.roleName,
+        };
+
+        await this.auditService.logAction(
+            'USER_SIGNED_UP',
+            adminId,
+            user.id,
+            'User',
+            user.id,
+            null,
+            newState,
+            ipAddress,
+            userAgent,
+            { emailSent: true }, 
+            tx, 
+        );
+
+        return {
+            message: 'User created and emailed',
+            userId: user.id,
+            tempPassword: randomPassword, 
+        };
+    } catch (error) {
         console.error(`Failed to send email to ${data.email}:`, error.message);
-        emailFailed = true;
-      }
 
-      const newState: Prisma.JsonObject = {
-        staffId: user.staffId,
-        name: user.name,
-        email: user.email,
-        role: data.roleName,
-      };
-      await this.auditService.logAction(
-        'USER_SIGNED_UP',
-        adminId,
-        user.id,
-        'User',
-        user.id,
-        null,
-        newState,
-        ipAddress,
-        userAgent,
-        { emailSent: !emailFailed },
-        tx,
-      );
+        const newState: Prisma.JsonObject = {
+            staffId: user.staffId,
+            name: user.name,
+            email: user.email,
+            role: data.roleName,
+        };
 
-      return {
-        message: 'User created' + (emailFailed ? '; email failed to send' : ' and emailed'),
-        userId: user.id,
-        tempPassword: randomPassword, // remove in prod
-      };
-    });
-  }
+        await this.auditService.logAction(
+            'USER_SIGNED_UP',
+            adminId,
+            user.id,
+            'User',
+            user.id,
+            null,
+            newState,
+            ipAddress,
+            userAgent,
+            { emailSent: false }, 
+            tx, 
+        );
+
+        throw new BadRequestException('User created, but email failed to send.'); 
+    }
+});
+}
 
   async softDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -204,4 +226,21 @@ export class UserManagementService {
       return { message: `User ${staffId} has been restored` };
     });
   }
+
+  //permanent user deletion for testing
+  async permanentlyDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where: { staffId } });
+        if (!user) {
+            throw new NotFoundException(`User with staffId ${staffId} not found`);
+        }
+        await tx.auditLog.deleteMany({ where: { performedById: user.id } });
+        await tx.auditLog.deleteMany({ where: { affectedUserId: user.id } });
+
+        await tx.user.delete({ where: { staffId } });
+
+        return { message: `User ${staffId} permanently deleted successfully` };
+    });
+}
+
 }

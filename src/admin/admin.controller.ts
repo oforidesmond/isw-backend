@@ -40,7 +40,7 @@ export class AdminController {
   }
 
   //create user
-  @Post('user') // Route: POST /admin/user
+  @Post('user')
   @UseGuards(JwtAuthGuard, RolesGuard) 
   @Roles('admin') 
   async createUser(@Body() createUserDto: CreateUserDto, @Request() req) {
@@ -53,6 +53,14 @@ export class AdminController {
 @Roles('admin')
 async softDeleteUser(@Param('staffId') staffId: string, @Request() req) {
   return this.userManagementService.softDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+}
+
+//not for prod
+@Delete('user/:staffId/permanent')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async permanentlyDeleteUser(@Param('staffId') staffId: string, @Request() req) {
+    return this.userManagementService.permanentlyDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
 }
 
 //restore a user

@@ -237,8 +237,8 @@ model UserRole {
 
 model Permission {
   id          String           @id @default(uuid())
-  resource        String           // "maintenance", "admin", "inventory", etc.
-  actions String[]              // ["read", "create", "update", "delete"]
+  resource        String           
+  actions String[]             
   roles       RolePermission[]
   deletedAt   DateTime?
 
@@ -266,10 +266,8 @@ model Inventory {
   assetId         String        @unique
   itItemId        String
   itItem          ITItem        @relation("InventoryITItem", fields: [itItemId], references: [id])
-  // Link to StockReceived entry that created this inventory item
   stockReceivedId String
   stockReceived   StockReceived @relation("InventoryStockReceived", fields: [stockReceivedId], references: [id])
-  // User Information
   userId          String
   user            User          @relation("UserInventory", fields: [userId], references: [id])
   departmentId    String
@@ -281,7 +279,7 @@ model Inventory {
   supplier        Supplier?     @relation("SupplierInventory", fields: [supplierId], references: [id])
 
   // Inventory Details
-  warrantyPeriod  Int // in months
+  warrantyPeriod  Int 
   purchaseDate    DateTime
   status          InventoryStatus
   statusChangedAt DateTime?
@@ -294,7 +292,7 @@ model Inventory {
   disposalDate       DateTime?
 
   // Additional Information
-  remarks   String? // Optional
+  remarks   String? 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -329,9 +327,9 @@ model DesktopDetails {
   desktopMonitorSerialNumber  String?
   desktopMacAddress           String?
   desktopProcessorType        String?
-  desktopMemorySize           String? // e.g., "16GB"
-  desktopStorageDriveType     String? // e.g., "SSD", "HDD"
-  desktopStorageDriveSize     String? // e.g., "512GB"
+  desktopMemorySize           String? 
+  desktopStorageDriveType     String? 
+  desktopStorageDriveSize     String? 
   desktopOperatingSystem      String?
   desktopEndpointSecurity     Boolean?
   desktopSpiceworksMonitoring Boolean?
@@ -352,9 +350,9 @@ model LaptopDetails {
   laptopSerialNumber         String?
   laptopMacAddress           String?
   laptopProcessorType        String?
-  laptopMemorySize           String? // e.g., "16GB"
-  laptopStorageDriveType     String? // e.g., "SSD", "HDD"
-  laptopStorageDriveSize     String? // e.g., "512GB"
+  laptopMemorySize           String? 
+  laptopStorageDriveType     String? 
+  laptopStorageDriveSize     String? 
   laptopOperatingSystem      String?
   laptopEndpointSecurity     Boolean?
   laptopSpiceworksMonitoring Boolean?
@@ -402,7 +400,7 @@ model OtherDetails {
   inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   // Other Device Specifications
-  deviceType        String? // e.g., "Router", "Switch", etc.
+  deviceType        String? 
   otherBrand        String?
   otherModel        String?
   otherSerialNumber String?
@@ -417,12 +415,12 @@ model OtherDetails {
 // ========================
 model Supplier {
   id             String    @id @default(uuid())
-  supplierID     String    @unique // e.g., "SUP-001"
+  supplierID     String    @unique 
   name           String
   contactDetails String?
-  lpoReference   String // e.g., "GCB/PD/FA/2/" (validated via regex in business logic)
+  lpoReference   String 
   lpoDate        DateTime
-  voucherNumber  String // e.g., "0005453" (validated via regex in business logic)
+  voucherNumber  String 
   remarks        String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -439,18 +437,17 @@ model Supplier {
 
 model ITItem {
   id              String     @id @default(uuid())
-  itemID          String     @unique // e.g., "IT-001"
+  itemID          String     @unique 
   deviceType      DeviceType
   itemClass       ItemClass
   brand           String
   model           String
-  defaultWarranty Int? // Warranty period (months)
+  defaultWarranty Int? 
   supplierId      String?
   supplier        Supplier?  @relation(fields: [supplierId], references: [id])
 
-  // IT Audit slides last trimester weekend 
-  validationRules Json? // Dynamic rules (e.g., for MAC address regex)
-  specifications  Json? // Additional specifications stored as JSON
+  validationRules Json? 
+  specifications  Json? 
   requisitions    Requisition[]
   inventories     Inventory[]   @relation("InventoryITItem")
   createdAt       DateTime      @default(now())
@@ -473,7 +470,7 @@ model Requisition {
   itItemId           String?
   itItem             ITItem?           @relation(fields: [itItemId], references: [id], map: "requisition_itItem_fkey")
   itemDescription    String
-  quantity           Int // ≥ 1 for all assets
+  quantity           Int 
   urgency            Urgency?
   purpose            String
   unitId             String?
@@ -501,15 +498,15 @@ model Requisition {
 
 model StockReceived {
   id               String    @id @default(uuid())
-  lpoReference     String // Linked to Supplier (validated via business logic)
-  voucherNumber    String // Store Requisition & Issue Voucher No.
+  lpoReference     String 
+  voucherNumber    String 
   lpoDate          DateTime
   itItemId         String
   itItem           ITItem    @relation("ITItemStockReceived", fields: [itItemId], references: [id])
   quantityReceived Int
   supplierId       String
   supplier         Supplier  @relation("SupplierStockReceived", fields: [supplierId], references: [id])
-  warrantyPeriod   Int // in months
+  warrantyPeriod   Int 
   receivedById     String
   receivedBy       User      @relation("UserStockReceived", fields: [receivedById], references: [id])
   dateReceived     DateTime
@@ -553,12 +550,12 @@ model StockIssued {
   stockBatch       StockBatch  @relation("StockBatchStockIssued", fields: [stockBatchId], references: [id], onDelete: Cascade)
   itItemId         String
   itItem           ITItem      @relation("ITItemStockIssued", fields: [itItemId], references: [id])
-  quantityIssued   Int // Must be ≤ quantity requested in the corresponding requisition
+  quantityIssued   Int 
   requestDate      DateTime
   issuedById       String
   issuedBy         User        @relation("UserStockIssued", fields: [issuedById], references: [id])
   issueDate        DateTime
-  disbursementNote String? // For audit purposes
+  disbursementNote String? 
   remarks          String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
