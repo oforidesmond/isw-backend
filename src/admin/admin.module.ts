@@ -10,12 +10,14 @@ import { AuditService } from 'audit/audit.service';
 import { UserManagementService } from './services/user-management.service';
 import { UserQueryService } from './services/user-query.service';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditModule } from 'audit/audit.module';
 // import { MailerService } from '@nestjs-modules/mailer';
 
 @Module({
   imports: [
     forwardRef(() => AuthModule),
     PrismaModule,
+    AuditModule
   ],
   controllers: [AdminController],
   providers: [

@@ -5,6 +5,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { UserService } from 'users/user.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from 'audit/audit.service';
+import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 
 // Payload types
 interface BaseJwtPayload {
@@ -70,7 +71,7 @@ export class AuthService {
   }
 
   async login(user: any, ipAddress?: string, userAgent?: string) {
-    return this.prisma.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (tx) => {
       const roles = user.roles.map((userRole) => userRole.role.name);
       const permissions = user.roles.flatMap((userRole) =>
         userRole.role.permissions.map((rp) => ({
@@ -87,18 +88,18 @@ export class AuthService {
         mustResetPassword: user.mustResetPassword,
       };
 
-      await this.auditService.logAction(
-        'USER_SIGNED_IN',
-        user.id,
-        user.id,
-        'User',
-        user.id,
-        null,
-        null,
+      const auditPayload: AuditPayload = {
+        actionType:'USER_SIGNED_IN',
+        performedById: user.id,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: null,
+        newState: null,
         ipAddress,
         userAgent,
-      );
-
+      };
+      await this.auditService.logAction(auditPayload, tx);
       return {
         access_token: this.jwtService.sign(payload),
         mustResetPassword: user.mustResetPassword,
@@ -121,19 +122,20 @@ export class AuthService {
 
     const user = await this.validateUser(decoded.staffId, decoded.tempPassword);
 
-    return this.prisma.$transaction(async (prisma) => {
-      await this.auditService.logAction(
-        'USER_SIGNED_IN',
-        user.id,
-        user.id,
-        'User',
-        user.id,
-        null,
-        null,
+    return this.prisma.$transaction(async (tx) => {
+      const auditPayload: AuditPayload = {
+        actionType:'USER_SIGNED_IN',
+        performedById: user.id,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: null,
+        newState: null,
         ipAddress,
         userAgent,
-        { viaTempToken: true },
-      );
+        details: { viaTempToken: true },
+      };
+      await this.auditService.logAction(auditPayload, tx);
       return this.login(user, ipAddress, userAgent);
     });
   }
@@ -177,19 +179,19 @@ export class AuthService {
         data: updateData,
       });
 
-      await this.auditService.logAction(
-        'USER_PASSWORD_RESET',
-        userId,
-        userId,
-        'User',
-        userId,
-        { password: '[hashed]' },
-        { password: '[hashed]', securityQuestion, securityAnswer: '[hashed]' },
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_PASSWORD_RESET',
+        performedById: userId,
+        affectedUserId: userId,
+         entityType: 'User',
+         entityId: userId,
+         oldState: { password: '[hashed]' },
+         newState: { password: '[hashed]', securityQuestion, securityAnswer: '[hashed]' },
         ipAddress,
         userAgent,
-        { initialReset: true },
-      );
-
+        details: { initialReset: true },
+      };
+      await this.auditService.logAction(auditPayload, prisma);
       return { message: 'Password reset successfully' };
     });
   }
@@ -212,19 +214,20 @@ export class AuthService {
     const resetToken = this.jwtService.sign(resetTokenPayload, { expiresIn: '15m' });
     const resetUrl = `http://localhost:3001/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    await this.prisma.$transaction(async (prisma) => {
-    await this.auditService.logAction(
-      'USER_PASSWORD_RESET',
-      user.id,
-      user.id,
-      'User',
-      user.id,
-      null,
-      null,
-      ipAddress,
-      userAgent,
-      { stage: 'request_initiated' },
-    );
+    await this.prisma.$transaction(async (tx) => {
+      const auditPayload: AuditPayload = {
+        actionType:'USER_PASSWORD_RESET',
+        performedById: user.id,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: null,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { stage: 'request_initiated' },
+      };
+      await this.auditService.logAction(auditPayload, tx);
   });
 
     try {
@@ -278,36 +281,37 @@ export class AuthService {
         },
       });
 
-      await this.auditService.logAction(
-        'USER_PASSWORD_RESET',
-        user.id,
-        user.id,
-        'User',
-        user.id,
-        { password: '[hashed]' },
-        { password: '[hashed]' },
+      const auditPayload: AuditPayload = {
+        actionType:'USER_PASSWORD_RESET',
+        performedById: user.id,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: { password: '[hashed]' },
+        newState: { password: '[hashed]' },
         ipAddress,
         userAgent,
-        { stage: 'completed' },
-      );
-
+        details: { stage: 'completed' },
+      };
+      await this.auditService.logAction(auditPayload, prisma);
       return { message: 'Password reset successfully' };
     });
   }
 
   async logout(userId: string, ipAddress?: string, userAgent?: string) {
-    return this.prisma.$transaction(async (prisma) => {
-      await this.auditService.logAction(
-        'USER_LOGGED_OUT',
-        userId,
-        userId,
-        'User',
-        userId,
-        null,
-        null,
+    return this.prisma.$transaction(async (tx) => {
+      const auditPayload: AuditPayload = {
+        actionType:'USER_LOGGED_OUT',
+        performedById: userId,
+        affectedUserId: userId,
+        entityType: 'User',
+        entityId: userId,
+        oldState: null,
+        newState: null,
         ipAddress,
         userAgent,
-      );
+      };
+      await this.auditService.logAction(auditPayload, tx);
       return { message: 'Logged out successfully' };
     });
   }

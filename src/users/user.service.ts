@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from 'audit/audit.service';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
 import { Prisma } from '@prisma/client';
+import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 
 @Injectable()
 export class UserService {
@@ -69,20 +70,20 @@ export class UserService {
         status: requisition.status,
       };
 
-      await this.auditService.logAction(
-        'REQUISITION_SUBMITTED',
-        userId,
-        userId,
-        'Requisition',
-        requisition.id,
-        null,
+      const auditPayload: AuditPayload = {
+        actionType:'REQUISITION_SUBMITTED',
+        performedById: userId,
+        affectedUserId: userId,
+        entityType: 'Requisition',
+        entityId: requisition.id,
+        oldState: null,
         newState,
         ipAddress,
         userAgent,
-        { departmentId: dto.departmentId },
-        tx, // Pass transaction context
-      );
+        details: { departmentId: dto.departmentId },
+      };
 
+      await this.auditService.logAction(auditPayload, tx);
       return requisition;
     });
   }

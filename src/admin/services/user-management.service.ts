@@ -7,6 +7,8 @@ import { JwtService } from '@nestjs/jwt';
 import { AuditService } from 'audit/audit.service';
 import { CreateUserDto } from 'admin/dto/create-user.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { UpdateUserDto } from 'admin/dto/update-user.dto';
+import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 
 @Injectable()
 export class UserManagementService {
@@ -80,19 +82,19 @@ export class UserManagementService {
             role: data.roleName,
         };
 
-        await this.auditService.logAction(
-            'USER_SIGNED_UP',
-            adminId,
-            user.id,
-            'User',
-            user.id,
-            null,
-            newState,
-            ipAddress,
-            userAgent,
-            { emailSent: true }, 
-            tx, 
-        );
+        const auditPayload: AuditPayload = {
+          actionType: 'USER_SIGNED_UP',
+          performedById: adminId,
+          affectedUserId: user.id,
+         entityType: 'User',
+         entityId: user.id,
+         oldState: null,
+         newState,
+         ipAddress,
+         userAgent,
+         details: { emailSent: true }, 
+     };
+     await this.auditService.logAction(auditPayload, tx);
 
         return {
             message: 'User created and emailed',
@@ -109,23 +111,22 @@ export class UserManagementService {
             role: data.roleName,
         };
 
-        await this.auditService.logAction(
-            'USER_SIGNED_UP',
-            adminId,
-            user.id,
-            'User',
-            user.id,
-            null,
+        const auditPayload: AuditPayload = {
+             actionType: 'USER_SIGNED_UP',
+             performedById: adminId,
+             affectedUserId: user.id,
+            entityType: 'User',
+            entityId: user.id,
+            oldState: null,
             newState,
             ipAddress,
             userAgent,
-            { emailSent: false }, 
-            tx, 
-        );
-
+            details: { emailSent: false }, 
+        };
+        await this.auditService.logAction(auditPayload, tx);
         throw new BadRequestException('User created, but email failed to send.'); 
     }
-});
+  });
 }
 
   async softDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
@@ -163,20 +164,20 @@ export class UserManagementService {
         name: user.name,
         email: user.email,
       };
-      await this.auditService.logAction(
-        'USER_DELETED',
-        adminId,
-        user.id,
-        'User',
-        user.id,
+      const auditPayload: AuditPayload = {
+        actionType:'USER_DELETED',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType:'User',
+        entityId: user.id,
         oldState,
-        null,
+        newState: null,
         ipAddress,
         userAgent,
-        { softDelete: true },
-        tx,
-      );
+        details: { softDelete: true },
+      };
 
+      await this.auditService.logAction(auditPayload, tx);
       return { message: `User ${staffId} soft-deleted successfully` };
     });
   }
@@ -209,20 +210,21 @@ export class UserManagementService {
         deletedAt: null,
       };
 
-      await this.auditService.logAction(
-        'USER_RESTORED',
-        adminId,
-        user.id,
-        'User',
-        user.id,
+      const auditPayload: AuditPayload = {
+         actionType: 'USER_RESTORED',
+         performedById: adminId,
+         affectedUserId: user.id,
+         entityType: 'User',
+         entityId: user.id,
         oldState,
         newState,
         ipAddress,
         userAgent,
-        { softRestore: true },
+        details: { softRestore: true },
         tx,
-      );
+      };
 
+      await this.auditService.logAction(auditPayload, tx);
       return { message: `User ${staffId} has been restored` };
     });
   }
@@ -241,6 +243,72 @@ export class UserManagementService {
 
         return { message: `User ${staffId} permanently deleted successfully` };
     });
-}
+  }
 
+  //Update User Details
+  async updateUser(staffId: string, data: UpdateUserDto, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { staffId },
+        include: { roles: { include: { role: true } } },
+      });
+      if (!user) throw new NotFoundException(`User with staffId ${staffId} not found`);
+      if (user.deletedAt) throw new BadRequestException(`User with staffId ${staffId} is deleted`);
+  
+      const oldState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+        departmentId: user.departmentId,
+        unitId: user.unitId,
+        roomNo: user.roomNo,
+        roleName: user.roles[0]?.role.name,
+      };
+  
+      const updatedUser = await tx.user.update({
+        where: { staffId },
+        data: {
+          name: data.name,
+          email: data.email,
+          departmentId: data.departmentId,
+          unitId: data.unitId,
+          roomNo: data.roomNo,
+        },
+      });
+  
+      if (data.roleName && data.roleName !== user.roles[0]?.role.name) {
+        const role = await tx.role.findUnique({ where: { name: data.roleName } });
+        if (!role) throw new BadRequestException(`Role "${data.roleName}" does not exist`);
+        await tx.userRole.deleteMany({ where: { userId: user.id } });
+        await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
+      }
+  
+      const newState: Prisma.JsonObject = {
+        staffId: updatedUser.staffId,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        departmentId: updatedUser.departmentId,
+        unitId: updatedUser.unitId,
+        roomNo: updatedUser.roomNo,
+        roleName: data.roleName || user.roles[0]?.role.name,
+      };
+  
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_UPDATED',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { roleChanged: !!data.roleName },
+      };
+  
+      await this.auditService.logAction(auditPayload, tx);
+  
+      return { message: `User ${staffId} updated successfully` };
+    });
+  }
 }

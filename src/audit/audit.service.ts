@@ -1,39 +1,28 @@
 import { Injectable } from '@nestjs/common';
 
 import { AuditActionType, Prisma } from '@prisma/client';
+import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class AuditService {
   constructor(private prisma: PrismaService) {}
 
-  async logAction(
-    actionType: AuditActionType,
-    performedById: string,
-    affectedUserId?: string,
-    entityType?: string,
-    entityId?: string,
-    oldState?: Prisma.JsonObject | null,
-    newState?: Prisma.JsonObject | null,
-    ipAddress?: string,
-    userAgent?: string,
-    details?: object,
-    tx?: Prisma.TransactionClient,
-  ) {
+  async logAction(payload: AuditPayload, tx?: Prisma.TransactionClient) {
     const prisma = tx || this.prisma;
 
     await prisma.auditLog.create({
       data: {
-        actionType,
-        performedById,
-        affectedUserId,
-        entityType,
-        entityId,
-        oldState,
-        newState,
-        ipAddress,
-        userAgent,
-        details: details as Prisma.JsonObject,
+        actionType: payload.actionType,
+        performedById: payload.performedById,
+        affectedUserId: payload.affectedUserId ?? null, 
+        entityType: payload.entityType,
+        entityId: payload.entityId,
+        oldState: payload.oldState ?? null,
+        newState: payload.newState ?? null,
+        ipAddress: payload.ipAddress,
+        userAgent: payload.userAgent,
+        details: payload.details as Prisma.JsonObject,
       },
     });
   }

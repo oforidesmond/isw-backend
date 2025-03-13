@@ -7,6 +7,7 @@ import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
 import { UserManagementService } from './services/user-management.service';
 import { UserQueryService } from './services/user-query.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -69,7 +70,19 @@ async permanentlyDeleteUser(@Param('staffId') staffId: string, @Request() req) {
 @Roles('admin')
 async restoreUser(@Param('staffId') staffId: string, @Request() req) {
   return this.userManagementService.restoreUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
-}
+  }
+
+//Update User Data
+@Patch('user/:staffId')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async updateUser(
+  @Param('staffId') staffId: string,
+  @Body() updateUserDto: UpdateUserDto,
+  @Request() req,
+) {
+  return this.userManagementService.updateUser(staffId, updateUserDto, req.user.userId, req.ip, req.headers['user-agent']);
+  }
 }
 
   

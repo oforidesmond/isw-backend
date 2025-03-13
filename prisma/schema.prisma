@@ -48,6 +48,8 @@ enum AuditActionType {
   // System Events
   USER_DELETED
   USER_RESTORED
+  USER_UPDATED
+  USER_STATUS_CHANGED
   ITEM_DELETED
 }
 
@@ -155,6 +157,7 @@ model User {
    securityQuestion   String?     
   securityAnswerHash String?    
   deletedAt    DateTime?
+  isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
