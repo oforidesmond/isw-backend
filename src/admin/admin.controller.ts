@@ -8,12 +8,14 @@ import { Roles } from 'auth/roles.decorator';
 import { UserManagementService } from './services/user-management.service';
 import { UserQueryService } from './services/user-query.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { RoleService } from './services/role.service';
 
 @Controller('admin')
 export class AdminController {
   constructor(
     private readonly userManagementService: UserManagementService,
     private readonly userQueryService: UserQueryService,
+    private readonly roleService: RoleService,
   ) {}
 
   //get amdin profile
@@ -83,6 +85,18 @@ async updateUser(
 ) {
   return this.userManagementService.updateUser(staffId, updateUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
+
+  //Edit Permissions for a Role
+  @Patch('role/:roleId/permissions')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async updateRolePermissions(
+  @Param('roleId') roleId: string,
+  @Body() body: { permissions: string[] },
+  @Request() req,
+) {
+  return this.roleService.updateRolePermissions(roleId, body.permissions, req.user.userId, req.ip, req.headers['user-agent']);
+}
 }
 
   
