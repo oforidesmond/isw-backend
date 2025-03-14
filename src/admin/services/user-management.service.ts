@@ -311,4 +311,122 @@ export class UserManagementService {
       return { message: `User ${staffId} updated successfully` };
     });
   }
+
+  //Manually Reset user password
+  async resetPassword(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { staffId } });
+      if (!user) throw new NotFoundException(`User with staffId ${staffId} not found`);
+      if (user.deletedAt) throw new BadRequestException(`User with staffId ${staffId} is deleted`);
+      if (!user.isActive) throw new BadRequestException(`User with staffId ${staffId} is inactive`);
+
+      // Generate a new temporary password
+      const tempPassword = crypto.randomBytes(5).toString('hex');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+      // Update user's password and set mustResetPassword
+      const updatedUser = await tx.user.update({
+        where: { staffId },
+        data: {
+          password: hashedPassword,
+          mustResetPassword: true,
+        },
+      });
+
+      // Generate a temp login token
+      const loginTokenPayload = {
+        staffId: user.staffId,
+        tempPassword,
+        type: 'temp-login',
+        sub: user.id,
+      };
+      const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3d' });
+      const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
+
+      let emailFailed = false;
+      try {
+        await this.mailerService.sendMail({
+          to: user.email,
+          from: process.env.EMAIL_USER,
+          subject: 'Account Password Reset',
+          html: `
+            <p>Hello ${user.name || 'User'},</p>
+            <p>An admin has reset your password.</p>
+            <p>Click <a href="${loginUrl}">here</a> to log in with your temporary password and reset it. This link expires in 3 days.</p>
+            <p>If you didn’t request this, contact support immediately.</p>
+            <p>Thanks,<br>ISW Team</p>
+          `,
+        });
+      } catch (error) {
+        console.error(`Failed to send email to ${user.email}:`, error.message);
+        emailFailed = true;
+      }
+
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_PASSWORD_RESET',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: null, // No old password tracking for security
+        newState: { staffId: user.staffId, email: user.email, mustResetPassword: true },
+        ipAddress,
+        userAgent,
+        details: { emailSent: !emailFailed },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return {
+        message: `Password for user ${staffId} has been reset${emailFailed ? '; email failed to send' : ' and emailed'}`,
+        tempPassword, // Remove in prod
+      };
+    });
+  }
+
+  // toggle activeStatus of User
+  async toggleStatus(staffId: string, isActive: boolean, adminId: string, ipAddress?: string, userAgent?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { staffId } });
+      if (!user) throw new NotFoundException(`User with staffId ${staffId} not found`);
+      if (user.deletedAt) throw new BadRequestException(`User with staffId ${staffId} is deleted`);
+      if (user.isActive === isActive) throw new BadRequestException(`User with staffId ${staffId} is already ${isActive ? 'active' : 'inactive'}`);
+
+      const oldState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+        isActive: user.isActive,
+      };
+
+      const updatedUser = await tx.user.update({
+        where: { staffId },
+        data: { isActive },
+      });
+
+      const newState: Prisma.JsonObject = {
+        staffId: updatedUser.staffId,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        isActive: updatedUser.isActive,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_STATUS_CHANGED',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { status: isActive ? 'activated' : 'deactivated' },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return { message: `User ${staffId} has been ${isActive ? 'activated' : 'deactivated'}` };
+    });
+  }
 }

@@ -86,6 +86,26 @@ async updateUser(
   return this.userManagementService.updateUser(staffId, updateUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
+  //Manually reset user password
+  @Post('user/:staffId/reset-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async resetPassword(@Param('staffId') staffId: string, @Request() req) {
+    return this.userManagementService.resetPassword(staffId, req.user.userId, req.ip, req.headers['user-agent']);
+  }
+
+  //Modify activeStatus of user
+  @Patch('user/:staffId/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async toggleStatus(
+    @Param('staffId') staffId: string,
+    @Body('isActive') isActive: boolean,
+    @Request() req,
+  ) {
+    return this.userManagementService.toggleStatus(staffId, isActive, req.user.userId, req.ip, req.headers['user-agent']);
+  }
+
   //Edit Permissions for a Role
   @Patch('role/:roleId/permissions')
 @UseGuards(JwtAuthGuard, RolesGuard)
