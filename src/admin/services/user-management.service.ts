@@ -49,7 +49,7 @@ export class UserManagementService {
         data: {
           userId: user.id,
           roleId: role.id,
-        },
+        } as Prisma.UserRoleUncheckedCreateInput,
       });
 
       const loginTokenPayload = {
@@ -280,7 +280,12 @@ export class UserManagementService {
         const role = await tx.role.findUnique({ where: { name: data.roleName } });
         if (!role) throw new BadRequestException(`Role "${data.roleName}" does not exist`);
         await tx.userRole.deleteMany({ where: { userId: user.id } });
-        await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
+        await tx.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: role.id,
+          } as Prisma.UserRoleUncheckedCreateInput, 
+        });
       }
   
       const newState: Prisma.JsonObject = {

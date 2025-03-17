@@ -9,6 +9,7 @@ import { UserManagementService } from './services/user-management.service';
 import { UserQueryService } from './services/user-query.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RoleService } from './services/role.service';
+import { CreateRoleDto } from './dto/create-role.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -105,6 +106,22 @@ async updateUser(
   ) {
     return this.userManagementService.toggleStatus(staffId, isActive, req.user.userId, req.ip, req.headers['user-agent']);
   }
+
+  //Get all roles
+  @Get('roles')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllRoles() {
+    return this.roleService.getAllRoles();
+  }
+
+  //Create Role
+  @Post('role')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async createRole(@Body() createRoleDto: CreateRoleDto, @Request() req) {
+  return this.roleService.createRole(createRoleDto, req.user.userId, req.ip, req.headers['user-agent']);
+}
 
   //Edit Permissions for a Role
   @Patch('role/:roleId/permissions')
