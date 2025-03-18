@@ -133,7 +133,25 @@ async updateRolePermissions(
   @Request() req,
 ) {
   return this.roleService.updateRolePermissions(roleId, body.permissions, req.user.userId, req.ip, req.headers['user-agent']);
-}
+  }
+
+  //Assign deptApprover to user
+  @Patch('dept/assign-approver')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async assignDeptApprover(
+    @Body('staffId') staffId: string,
+    @Body('departmentId') departmentId: string,
+    @Request() req,
+  ) {
+    return this.userManagementService.assignDeptApprover(
+      staffId,
+      departmentId,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
 }
 
   

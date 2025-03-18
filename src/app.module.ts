@@ -37,7 +37,7 @@ import { AuditModule } from './audit/audit.module';
       },
     }),
 
-    AuthModule, UserModule, PrismaModule, UserModule, AdminModule, SupervisorModule, ItdApprovalManagerModule, ApprovalManagerModule, StoresOfficerModule, InventoryOfficerModule, HardwareTechnicianModule, AuditModule],
+    AuthModule, UserModule, PrismaModule, UserModule, AdminModule, SupervisorModule, ItdApprovalManagerModule, ApprovalManagerModule, StoresOfficerModule, InventoryOfficerModule, HardwareTechnicianModule, AuditModule, ApprovalManagerModule, ItdApprovalManagerModule],
   controllers: [AppController],
   providers: [AppService],
 })

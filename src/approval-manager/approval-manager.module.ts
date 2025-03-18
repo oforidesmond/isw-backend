@@ -6,18 +6,16 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from 'prisma/prisma.module';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
+import { AuditModule } from 'audit/audit.module';
+import { ItdApprovalManagerService } from 'itd-approval-manager/itd-approval-manager.service';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Module({
   imports: [
-    forwardRef(() => AuthModule),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret',
-      signOptions: { expiresIn: '1h' },
-    }),
-    PrismaModule,
+    PrismaModule, AuditModule
   ],
   controllers: [ApprovalManagerController],
-  providers: [ApprovalManagerService,JwtAuthGuard, RolesGuard],
+  providers: [ApprovalManagerService,ItdApprovalManagerService,JwtAuthGuard, RolesGuard, PrismaService],
   exports: [ApprovalManagerService],
 })
 export class ApprovalManagerModule {}

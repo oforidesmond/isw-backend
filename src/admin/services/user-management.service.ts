@@ -434,4 +434,62 @@ export class UserManagementService {
       return { message: `User ${staffId} has been ${isActive ? 'activated' : 'deactivated'}` };
     });
   }
+
+  //Assign dept approver to a user
+  async assignDeptApprover(
+    staffId: string,
+    departmentId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { staffId },
+        select: { id: true, deptApproverFor: true, isActive: true },
+      });
+      if (!user) throw new NotFoundException(`User with staffId ${staffId} not found`);
+      if (!user.isActive) throw new BadRequestException(`User with staffId ${staffId} is not active`);
+
+      if (user.deptApproverFor) {
+        throw new BadRequestException(
+          `User ${staffId} is already the department approver for ${user.deptApproverFor.name}`,
+        );
+      }
+
+      const department = await tx.department.findUnique({
+        where: { id: departmentId },
+        select: { id: true, name: true, deptApproverId: true },
+      });
+      if (!department) throw new NotFoundException(`Department with id ${departmentId} not found`);
+
+      const updatedDepartment = await tx.department.update({
+        where: { id: departmentId },
+        data: { deptApproverId: user.id },
+      });
+
+      const oldState: Prisma.JsonObject = { deptApproverId: department.deptApproverId || null };
+      const newState: Prisma.JsonObject = { deptApproverId: user.id };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_UPDATED',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType: 'Department',
+        entityId: departmentId,
+        oldState,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { departmentName: department.name },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return {
+        message: `User ${staffId} assigned as department approver for ${department.name}`,
+      };
+    });
+  }
+
 }

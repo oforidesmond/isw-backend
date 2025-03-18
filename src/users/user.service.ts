@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from 'audit/audit.service';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
@@ -31,18 +31,56 @@ export class UserService {
   }
 
   async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
-    // Generate unique requisitionID (e.g., "REQ-2025-001")
-    const year = new Date().getFullYear();
-    const count = await this.prisma.requisition.count({ where: { requisitionID: { startsWith: `REQ-${year}` } } });
-    const requisitionID = `REQ-${year}-${String(count + 1).padStart(3, '0')}`;
 
-    // Perform creation and logging in a transaction
     return this.prisma.$transaction(async (tx) => {
 
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: { unitId: true, roomNo: true },
       });
+      if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+      //Check and assign deptApprover
+    const department = await tx.department.findUnique({
+      where: { id: dto.departmentId },
+      select: { deptApproverId: true },
+    });
+    if (!department) throw new BadRequestException(`Department ${dto.departmentId} not found`);
+
+    let deptApproverId = department.deptApproverId;
+    if (!deptApproverId) {
+
+      const deptApprover = await tx.user.findFirst({
+        where: {
+          departmentId: dto.departmentId,
+          roles: { some: { role: { name: 'dept_approver' } } },
+          isActive: true, 
+        },
+        select: { id: true },
+      });
+      if (!deptApprover) throw new NotFoundException(`No department approver found for department ${dto.departmentId}`);
+      deptApproverId = deptApprover.id;
+    }
+
+    const itDepartment = await tx.department.findFirst({
+      where: { name: 'it' }, // use config or flag later
+      select: { id: true },
+    });
+    if (!itDepartment) throw new NotFoundException('IT department not found');
+
+    const itdApprover = await tx.user.findFirst({
+      where: {
+        departmentId: itDepartment.id,
+        roles: { some: { role: { name: 'itd_approver' } } },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!itdApprover) throw new NotFoundException('No ITD approver found in IT department');
+
+    const year = new Date().getFullYear();
+    const count = await tx.requisition.count({ where: { requisitionID: { startsWith: `REQ-${year}` } } });
+    const requisitionID = `REQ-${year}-${String(count + 1).padStart(3, '0')}`;
 
       const requisition = await tx.requisition.create({
         data: {
@@ -53,14 +91,15 @@ export class UserService {
           quantity: dto.quantity,
           urgency: dto.urgency,
           purpose: dto.purpose,
-          unitId: dto.unitId || user?.unitId,
+          unitId: dto.unitId || user.unitId,
           departmentId: dto.departmentId,
-          roomNo: dto.roomNo || user?.roomNo,
+          roomNo: dto.roomNo || user.roomNo,
           status: 'PENDING_DEPT_APPROVAL',
+          deptApproverId,
+          itdApproverId: itdApprover.id,
         },
       });
 
-      // Log REQUISITION_SUBMITTED
       const newState: Prisma.JsonObject = {
         requisitionID: requisition.requisitionID,
         itemDescription: requisition.itemDescription,
@@ -103,6 +142,7 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         declineReason: true,
+        deptApproverId: true, 
       },
     });
 
