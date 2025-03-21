@@ -1,5 +1,3 @@
-// audit-payload.interface.ts
-
 import { AuditActionType, Prisma } from '@prisma/client';
 
 export interface AuditPayload {

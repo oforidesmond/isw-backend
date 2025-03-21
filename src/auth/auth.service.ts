@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'prisma/prisma.service';
 import { UserService } from 'users/user.service';
-import { MailerService } from '@nestjs-modules/mailer';
+// import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from 'audit/audit.service';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { InjectQueue } from '@nestjs/bull';
