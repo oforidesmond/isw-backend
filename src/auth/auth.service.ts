@@ -6,6 +6,8 @@ import { UserService } from 'users/user.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from 'audit/audit.service';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 // Payload types
 interface BaseJwtPayload {
@@ -37,8 +39,8 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
-    private readonly mailerService: MailerService,
     private readonly auditService: AuditService,
+    @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   private readonly securityQuestions = [
@@ -214,6 +216,7 @@ export class AuthService {
     const resetToken = this.jwtService.sign(resetTokenPayload, { expiresIn: '15m' });
     const resetUrl = `http://localhost:3001/reset-password?token=${encodeURIComponent(resetToken)}`;
 
+    let emailQueued = false;
     await this.prisma.$transaction(async (tx) => {
       const auditPayload: AuditPayload = {
         actionType:'USER_PASSWORD_RESET',
@@ -225,15 +228,15 @@ export class AuthService {
         newState: null,
         ipAddress,
         userAgent,
-        details: { stage: 'request_initiated' },
+        details: { stage: 'request_initiated', emailSent: false },
       };
       await this.auditService.logAction(auditPayload, tx);
-  });
 
-    try {
-      await this.mailerService.sendMail({
+  try {
+    await this.emailQueue.add(
+      'send-email',
+      {
         to: email,
-        from: process.env.EMAIL_USER,
         subject: 'Reset Your ISW Account Password',
         html: `
           <p>Hello ${user.name},</p>
@@ -242,14 +245,52 @@ export class AuthService {
           <p>If you didn’t request this, ignore this email.</p>
           <p>Thanks,<br>ISW Team</p>
         `,
-      });  
-    } catch (error) {
-      console.error(`Failed to send reset email to ${email}:`, error.message);
-      throw new Error('Failed to send reset email');
-    }
+      },
+      { attempts: 3, backoff: 5000 },
+    );
+    emailQueued = true;
 
-    return { message: 'Password reset email sent' };
+    // queuing success
+    const successAuditPayload: AuditPayload = {
+      actionType: 'USER_PASSWORD_RESET',
+      performedById: user.id,
+      affectedUserId: user.id,
+      entityType: 'User',
+      entityId: user.id,
+      oldState: null,
+      newState: null,
+      ipAddress,
+      userAgent,
+      details: { stage: 'email_queued', emailSent: true },
+    };
+    await this.auditService.logAction(successAuditPayload, tx);
+  } catch (error) {
+    console.error(`Failed to queue reset email to ${email}:`, error.message);
+
+    // queuing failure
+    const failureAuditPayload: AuditPayload = {
+      actionType: 'USER_PASSWORD_RESET',
+      performedById: user.id,
+      affectedUserId: user.id,
+      entityType: 'User',
+      entityId: user.id,
+      oldState: null,
+      newState: null,
+      ipAddress,
+      userAgent,
+      details: { stage: 'email_queue_failed', emailSent: false },
+    };
+    await this.auditService.logAction(failureAuditPayload, tx);
+    throw new Error('Failed to queue reset email');
   }
+});
+
+if (!emailQueued) {
+  throw new Error('Failed to queue reset email'); 
+}
+
+return { message: 'Password reset email queued' };
+}
 
   async resetPasswordWithToken(token: string, newPassword: string, ipAddress?: string, userAgent?: string) {
     let decoded: ResetPasswordJwtPayload;
