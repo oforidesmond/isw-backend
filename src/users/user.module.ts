@@ -17,7 +17,7 @@ import { RolesGuard } from 'auth/roles.guard';
       secret: process.env.JWT_SECRET || 'default_secret',
       signOptions: { expiresIn: '1h' },
     }),
-    PrismaModule,
+    PrismaModule
   ],
   controllers: [UserController],
   providers: [UserService, JwtAuthGuard, AuthService, AuditService, PrismaService, RolesGuard],

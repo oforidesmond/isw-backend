@@ -16,16 +16,16 @@ import { StoresOfficerModule } from './stores-officer/stores-officer.module';
 import { InventoryOfficerModule } from './inventory-officer/inventory-officer.module';
 import { HardwareTechnicianModule } from './hardware-technician/hardware-technician.module';
 import { AuditModule } from './audit/audit.module';
+import { QueueModule } from 'queue.module';
 
 @Module({
-  imports: [ ConfigModule.forRoot({
-    envFilePath: 'C:/Users/Admin/Documents/ISW/isw-backend/.env',
-    isGlobal: true, 
-  }), 
-  EventEmitterModule.forRoot(),
-
-     // MailerModule for sending emails
-     MailerModule.forRoot({
+  imports: [
+    ConfigModule.forRoot({
+      envFilePath: 'C:/Users/Admin/Documents/ISW/isw-backend/.env',
+      isGlobal: true,
+    }),
+    EventEmitterModule.forRoot(),
+    MailerModule.forRoot({
       transport: {
         host: process.env.EMAIL_HOST,
         port: Number(process.env.EMAIL_PORT),
@@ -36,8 +36,19 @@ import { AuditModule } from './audit/audit.module';
         },
       },
     }),
-
-    AuthModule, UserModule, PrismaModule, UserModule, AdminModule, SupervisorModule, ItdApprovalManagerModule, ApprovalManagerModule, StoresOfficerModule, InventoryOfficerModule, HardwareTechnicianModule, AuditModule, ApprovalManagerModule, ItdApprovalManagerModule],
+    QueueModule,
+    AuthModule,
+    UserModule,
+    PrismaModule,
+    AdminModule,
+    SupervisorModule,
+    ItdApprovalManagerModule,
+    ApprovalManagerModule,
+    StoresOfficerModule,
+    InventoryOfficerModule,
+    HardwareTechnicianModule,
+    AuditModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

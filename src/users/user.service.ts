@@ -4,12 +4,27 @@ import { AuditService } from 'audit/audit.service';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
 import { Prisma } from '@prisma/client';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
+// import { MailerService } from '@nestjs-modules/mailer';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+
+interface ExtendedAuditPayload extends AuditPayload {
+  details: {
+    departmentId: string;
+    emailSent: {
+      submitter: boolean;
+      deptApprover: boolean;
+    };
+  };
+}
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,     
     private auditService: AuditService,
+    // private mailerService: MailerService, 
+    @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   async getProfile(userId: string, ipAddress?: string, userAgent?: string ) {
@@ -36,7 +51,7 @@ export class UserService {
 
       const user = await tx.user.findUnique({
         where: { id: userId },
-        select: { unitId: true, roomNo: true },
+        select: { unitId: true, roomNo: true, email: true, name: true  },
       });
       if (!user) throw new NotFoundException(`User ${userId} not found`);
 
@@ -56,7 +71,7 @@ export class UserService {
           roles: { some: { role: { name: 'dept_approver' } } },
           isActive: true, 
         },
-        select: { id: true },
+        select: { id: true, email: true, name: true },
       });
       if (!deptApprover) throw new NotFoundException(`No department approver found for department ${dto.departmentId}`);
       deptApproverId = deptApprover.id;
@@ -109,7 +124,7 @@ export class UserService {
         status: requisition.status,
       };
 
-      const auditPayload: AuditPayload = {
+      const auditPayload: ExtendedAuditPayload = {
         actionType:'REQUISITION_SUBMITTED',
         performedById: userId,
         affectedUserId: userId,
@@ -119,10 +134,49 @@ export class UserService {
         newState,
         ipAddress,
         userAgent,
-        details: { departmentId: dto.departmentId },
+        details: { 
+          departmentId: dto.departmentId,
+          emailSent: { submitter: false, deptApprover: false }
+        },
       };
 
+       const deptApprover = await tx.user.findUnique({
+        where: { id: deptApproverId },
+        select: { email: true, name: true },
+      });
+
+      await this.emailQueue.add('send-email', {
+        to: user.email,
+        subject: `Requisition ${requisitionID} Submitted`,
+        html: `
+          <p>Hello ${user.name},</p>
+          <p>Your requisition (${requisitionID}) has been successfully submitted.</p>
+          <p>It is now pending department approval.</p>
+          <p>Thanks,<br>ISW Team</p>
+        `,
+      },{
+        attempts: 3,
+        backoff: 5000,
+      });
+      auditPayload.details.emailSent.submitter = true;
+
+      await this.emailQueue.add('send-email', {
+        to: deptApprover.email,
+        subject: `New Requisition ${requisitionID} Awaiting Department Approval`,
+        html: `
+          <p>Hello ${deptApprover.name},</p>
+          <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
+          <p>Please review it at your earliest convenience.</p>
+          <p>Thanks,<br>ISW Team</p>
+        `,
+      },{
+        attempts: 3,
+        backoff: 5000,
+      });
+      auditPayload.details.emailSent.deptApprover = true;
+
       await this.auditService.logAction(auditPayload, tx);
+
       return requisition;
     });
   }
