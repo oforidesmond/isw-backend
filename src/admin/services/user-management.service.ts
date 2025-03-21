@@ -9,12 +9,14 @@ import { CreateUserDto } from 'admin/dto/create-user.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateUserDto } from 'admin/dto/update-user.dto';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class UserManagementService {
   constructor(
     private prisma: PrismaService,
-    private mailerService: MailerService,
+    @InjectQueue('email-queue') private readonly emailQueue: Queue,
     private jwtService: JwtService,
     private auditService: AuditService,
   ) {}
@@ -22,15 +24,15 @@ export class UserManagementService {
   async createUser(data: CreateUserDto, adminId: string, ipAddress?: string, userAgent?: string) {
     const randomPassword = crypto.randomBytes(5).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
+  
     const role = await this.prisma.role.findUnique({
       where: { name: data.roleName },
     });
-
+  
     if (!role) {
       throw new Error(`Role "${data.roleName}" does not exist`);
     }
-
+  
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -44,14 +46,14 @@ export class UserManagementService {
           mustResetPassword: true,
         },
       });
-
+  
       await tx.userRole.create({
         data: {
           userId: user.id,
           roleId: role.id,
         } as Prisma.UserRoleUncheckedCreateInput,
       });
-
+  
       const loginTokenPayload = {
         staffId: data.staffId,
         tempPassword: randomPassword,
@@ -60,74 +62,63 @@ export class UserManagementService {
       };
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3 days' });
       const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
-
+  
+      let emailQueued = false;
       try {
-        await this.mailerService.sendMail({
+        await this.emailQueue.add(
+          'send-email',
+          {
             to: data.email,
-            from: process.env.EMAIL_USER,
             subject: 'Welcome to ISW App',
             html: `
-                <p>Hello ${data.name},</p>
-                <p>Your account has been created.</p>
-                <p>Click <a href="${loginUrl}">here</a> to log in and reset your password immediately. Please note that this link is only valid for the next 3 days.</p>
-                <p>If you have any issues, please don't hesitate to contact us.</p>
-                <p>Thanks,<br>ISW Team</p>
+              <p>Hello ${data.name},</p>
+              <p>Your account has been created.</p>
+              <p>Click <a href="${loginUrl}">here</a> to log in and reset your password immediately. Please note that this link is only valid for the next 3 days.</p>
+              <p>If you have any issues, please don't hesitate to contact us.</p>
+              <p>Thanks,<br>ISW Team</p>
             `,
-        });
-
-        const newState: Prisma.JsonObject = {
-            staffId: user.staffId,
-            name: user.name,
-            email: user.email,
-            role: data.roleName,
-        };
-
-        const auditPayload: AuditPayload = {
-          actionType: 'USER_SIGNED_UP',
-          performedById: adminId,
-          affectedUserId: user.id,
-         entityType: 'User',
-         entityId: user.id,
-         oldState: null,
-         newState,
-         ipAddress,
-         userAgent,
-         details: { emailSent: true }, 
-     };
-     await this.auditService.logAction(auditPayload, tx);
-
-        return {
-            message: 'User created and emailed',
-            userId: user.id,
-            tempPassword: randomPassword, 
-        };
-    } catch (error) {
-        console.error(`Failed to send email to ${data.email}:`, error.message);
-
-        const newState: Prisma.JsonObject = {
-            staffId: user.staffId,
-            name: user.name,
-            email: user.email,
-            role: data.roleName,
-        };
-
-        const auditPayload: AuditPayload = {
-             actionType: 'USER_SIGNED_UP',
-             performedById: adminId,
-             affectedUserId: user.id,
-            entityType: 'User',
-            entityId: user.id,
-            oldState: null,
-            newState,
-            ipAddress,
-            userAgent,
-            details: { emailSent: false }, 
-        };
-        await this.auditService.logAction(auditPayload, tx);
-        throw new BadRequestException('User created, but email failed to send.'); 
-    }
-  });
-}
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        emailQueued = true;
+      } catch (error) {
+        console.error(`Failed to queue email for ${data.email}:`, error.message);
+        emailQueued = false;
+      }
+  
+      const newState: Prisma.JsonObject = {
+        staffId: user.staffId,
+        name: user.name,
+        email: user.email,
+        role: data.roleName,
+      };
+  
+      const auditPayload: AuditPayload = {
+        actionType: 'USER_SIGNED_UP',
+        performedById: adminId,
+        affectedUserId: user.id,
+        entityType: 'User',
+        entityId: user.id,
+        oldState: null,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { emailSent: emailQueued },
+      };
+  
+      await this.auditService.logAction(auditPayload, tx);
+  
+      if (!emailQueued) {
+        throw new BadRequestException('User created, but email failed to queue.');
+      }
+  
+      return {
+        message: 'User created and email queued',
+        userId: user.id,
+        tempPassword: randomPassword, // Remove in prod
+      };
+    });
+  }
 
   async softDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -325,11 +316,9 @@ export class UserManagementService {
       if (user.deletedAt) throw new BadRequestException(`User with staffId ${staffId} is deleted`);
       if (!user.isActive) throw new BadRequestException(`User with staffId ${staffId} is inactive`);
 
-      // Generate a new temporary password
       const tempPassword = crypto.randomBytes(5).toString('hex');
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      // Update user's password and set mustResetPassword
       const updatedUser = await tx.user.update({
         where: { staffId },
         data: {
@@ -348,42 +337,46 @@ export class UserManagementService {
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3d' });
       const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
 
-      let emailFailed = false;
+      let emailQueued = false;
       try {
-        await this.mailerService.sendMail({
-          to: user.email,
-          from: process.env.EMAIL_USER,
-          subject: 'Account Password Reset',
-          html: `
-            <p>Hello ${user.name || 'User'},</p>
-            <p>An admin has reset your password.</p>
-            <p>Click <a href="${loginUrl}">here</a> to log in with your temporary password and reset it. This link expires in 3 days.</p>
-            <p>If you didn’t request this, contact support immediately.</p>
-            <p>Thanks,<br>ISW Team</p>
-          `,
-        });
+        await this.emailQueue.add(
+          'send-email',
+          {
+            to: user.email,
+            subject: 'Account Password Reset',
+            html: `
+              <p>Hello ${user.name || 'User'},</p>
+              <p>An admin has reset your password.</p>
+              <p>Click <a href="${loginUrl}">here</a> to log in with your temporary password and reset it. This link expires in 3 days.</p>
+              <p>If you didn’t request this, contact support immediately.</p>
+              <p>Thanks,<br>ISW Team</p>
+            `,
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        emailQueued = true;
       } catch (error) {
-        console.error(`Failed to send email to ${user.email}:`, error.message);
-        emailFailed = true;
+        console.error(`Failed to queue email for ${user.email}:`, error.message);
+        emailQueued = false;
       }
-
+  
       const auditPayload: AuditPayload = {
         actionType: 'USER_PASSWORD_RESET',
         performedById: adminId,
         affectedUserId: user.id,
         entityType: 'User',
         entityId: user.id,
-        oldState: null, // No old password tracking for security
+        oldState: null,
         newState: { staffId: user.staffId, email: user.email, mustResetPassword: true },
         ipAddress,
         userAgent,
-        details: { emailSent: !emailFailed },
+        details: { emailSent: emailQueued },
       };
-
+  
       await this.auditService.logAction(auditPayload, tx);
-
+  
       return {
-        message: `Password for user ${staffId} has been reset${emailFailed ? '; email failed to send' : ' and emailed'}`,
+        message: `Password for user ${staffId} has been reset${emailQueued ? ' and email queued' : '; email failed to queue'}`,
         tempPassword, // Remove in prod
       };
     });
