@@ -11,6 +11,7 @@ interface ExtendedAuditPayload extends AuditPayload {
     itItemId?: string;
     emailsQueued: {
       submitter: boolean;
+      storesOfficer?: boolean;
     };
   };
 }
@@ -55,7 +56,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
       newState,
       ipAddress,
       userAgent,
-      details: { itItemId: requisition.itItemId, emailsQueued: { submitter: false } },
+      details: { itItemId: requisition.itItemId, emailsQueued: { submitter: false, storesOfficer: false } },
     };
 
     // Notify submitter
@@ -68,7 +69,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
           html: `
             <p>Hello ${requisition.staff.name},</p>
             <p>Your requisition (${requisition.requisitionID}) has been fully approved by ITD.</p>
-            <p>Expect further updates on processing.</p>
+            <p>Stand-by for issuance</p>
             <p>Thanks,<br>ISW Team</p>
           `,
         },
@@ -80,13 +81,47 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
       auditPayload.details.emailsQueued.submitter = false;
     }
 
-    await this.auditService.logAction(auditPayload, tx);
-
-    if (!auditPayload.details.emailsQueued.submitter) {
-      throw new BadRequestException(`Requisition ${requisitionId} approved, but email failed to queue`);
+    // Notify stores officer
+    const storesOfficer = await tx.user.findFirst({
+      where: {
+        roles: { some: { role: { name: 'stores_officer' } } },
+        isActive: true,
+      },
+      select: { email: true, name: true },
+    });
+    if (storesOfficer) {
+      try {
+        await this.emailQueue.add(
+          'send-email',
+          {
+            to: storesOfficer.email,
+            subject: `Requisition ${requisition.requisitionID} Ready for Issuance`,
+            html: `
+              <p>Hello ${storesOfficer.name},</p>
+              <p>Requisition (${requisition.requisitionID}) has been approved by ITD and is ready for issuance.</p>
+              <p>Please process it at your earliest convenience.</p>
+              <p>Thanks,<br>ISW Team</p>
+            `,
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        auditPayload.details.emailsQueued.storesOfficer = true;
+      } catch (error) {
+        console.error(`Failed to queue email for ${storesOfficer.email}:`, error.message);
+        auditPayload.details.emailsQueued.storesOfficer = false;
+      }
+    } else {
+      console.warn('No active stores officer found');
+      auditPayload.details.emailsQueued.storesOfficer = false;
     }
 
-    return { message: `Requisition ${requisitionId} approved by ITD and email queued` };
+    await this.auditService.logAction(auditPayload, tx);
+
+    if (!auditPayload.details.emailsQueued.submitter || !auditPayload.details.emailsQueued.storesOfficer) {
+      throw new BadRequestException(`Requisition ${requisitionId} approved, but one or more emails failed to queue`);
+    }
+
+    return { message: `Requisition ${requisitionId} approved by ITD and emails queued` };
   });
 }
 

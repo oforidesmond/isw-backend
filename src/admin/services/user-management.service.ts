@@ -12,6 +12,15 @@ import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 
+interface ExtendedAuditPayload extends AuditPayload {
+  details: {
+    departmentName: string;
+    emailsQueued: {
+      approver: boolean;
+    };
+  };
+}
+
 @Injectable()
 export class UserManagementService {
   constructor(
@@ -120,6 +129,7 @@ export class UserManagementService {
     });
   }
 
+  //softdelete usr
   async softDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { staffId } });
@@ -173,6 +183,7 @@ export class UserManagementService {
     });
   }
 
+  //restore the user
   async restoreUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { staffId } });
@@ -439,7 +450,7 @@ export class UserManagementService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { staffId },
-        select: { id: true, deptApproverFor: true, isActive: true },
+        select: { id: true, deptApproverFor: true, isActive: true, email: true, name: true },
       });
       if (!user) throw new NotFoundException(`User with staffId ${staffId} not found`);
       if (!user.isActive) throw new BadRequestException(`User with staffId ${staffId} is not active`);
@@ -464,7 +475,7 @@ export class UserManagementService {
       const oldState: Prisma.JsonObject = { deptApproverId: department.deptApproverId || null };
       const newState: Prisma.JsonObject = { deptApproverId: user.id };
 
-      const auditPayload: AuditPayload = {
+      const auditPayload: ExtendedAuditPayload = {
         actionType: 'USER_UPDATED',
         performedById: adminId,
         affectedUserId: user.id,
@@ -474,15 +485,42 @@ export class UserManagementService {
         newState,
         ipAddress,
         userAgent,
-        details: { departmentName: department.name },
+        details: { departmentName: department.name, emailsQueued: { approver: false } },
       };
+
+      try {
+        await this.emailQueue.add(
+          'send-email',
+          {
+            to: user.email,
+            subject: `Assigned as Department Requisitions Approver for ${department.name}`,
+            html: `
+              <p>Hello ${user.name},</p>
+              <p>You have been assigned as the Department Requisitions Approver for ${department.name.toUpperCase()}.</p>
+              <p>You will now be responsible for approving or declining requisitions for this department.</p>
+              <p>If you have any questions, please contact the admin team.</p>
+              <p>Thanks,<br>ISW Team</p>
+            `,
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        auditPayload.details.emailsQueued.approver = true;
+      } catch (error) {
+        console.error(`Failed to queue email for ${user.email}:`, error.message);
+        auditPayload.details.emailsQueued.approver = false;
+      }
 
       await this.auditService.logAction(auditPayload, tx);
 
+      if (!auditPayload.details.emailsQueued.approver) {
+        throw new BadRequestException(
+          `User ${staffId} assigned as department approver for ${department.name}, but email failed to queue`,
+        );
+      }
+
       return {
-        message: `User ${staffId} assigned as department approver for ${department.name}`,
+        message: `User ${staffId} assigned as department approver for ${department.name} and email queued`,
       };
     });
   }
-
 }

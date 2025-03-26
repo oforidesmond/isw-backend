@@ -1,15 +1,83 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Define test departments (if not already seeded)
+  // 1. Seed roles
+  const roles = [
+    'admin',
+    'supervisor',
+    'user',
+    'stores_officer',
+    'inventory_officer',
+    'hardware_technician',
+    'itd_approver',
+    'dept_approver',
+  ];
+
+  for (const roleName of roles) {
+    await prisma.role.upsert({
+      where: { name: roleName },
+      update: {},
+      create: { name: roleName },
+    });
+  }
+
+  // 2. Seed permissions
+  const permissions = [
+    { resource: 'admin', actions: ['read', 'create', 'update', 'delete'] },
+    { resource: 'hardware', actions: ['read', 'create', 'update'] },
+    { resource: 'inventory', actions: ['read', 'create', 'update'] },
+    { resource: 'stores', actions: ['read', 'create', 'update'] },
+    { resource: 'user', actions: ['read', 'create'] },
+    { resource: 'dept_approver', actions: ['approve', 'decline'] },
+    { resource: 'itd_approver', actions: ['approve', 'decline'] },
+    { resource: 'supervisor', actions: ['read'] },
+  ];
+
+  for (const perm of permissions) {
+    await prisma.permission.upsert({
+      where: { resource: perm.resource },
+      update: {},
+      create: { resource: perm.resource, actions: perm.actions },
+    });
+  }
+
+  // 3. Assign permissions to roles
+  const rolePermissions = {
+    admin: ['admin'],
+    supervisor: ['supervisor'],
+    hardware_technician: ['hardware'],
+    inventory_officer: ['inventory'],
+    itd_approver: ['itd_approver'],
+    dept_approver: ['dept_approver'],
+    stores_officer: ['stores'],
+    user: ['user'],
+  };
+
+  for (const [roleName, permissionResources] of Object.entries(rolePermissions)) {
+    const role = await prisma.role.findUnique({ where: { name: roleName } });
+
+    for (const resource of permissionResources) {
+      const permission = await prisma.permission.findUnique({ where: { resource } });
+
+      if (role && permission) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+          update: {},
+          create: { roleId: role.id, permissionId: permission.id },
+        });
+      }
+    }
+  }
+
+  // 4. Seed departments
   const departments = [
-    { name: 'it' },
-    { name: 'finance' },
-    { name: 'legal' },
+    { name: 'it', deptApproverStaffId: '008' },
+    { name: 'finance', deptApproverStaffId: '007' },
+    { name: 'legal', deptApproverStaffId: null },
   ];
 
   for (const dept of departments) {
@@ -20,42 +88,38 @@ async function main() {
     });
   }
 
-  // Define test units (if not already seeded)
+  // 5. Seed units
   const units = [
     { name: 'network', departmentName: 'it' },
     { name: 'hardware', departmentName: 'it' },
     { name: 'inventory', departmentName: 'it' },
     { name: 'ip', departmentName: 'legal' },
     { name: 'tax', departmentName: 'finance' },
-
   ];
 
   for (const unit of units) {
-    const department = await prisma.department.findUnique({
-      where: { name: unit.departmentName },
-    });
-
+    const department = await prisma.department.findUnique({ where: { name: unit.departmentName } });
     if (!department) {
       console.error(`Department "${unit.departmentName}" not found for unit "${unit.name}"`);
       continue;
     }
 
- await prisma.unit.upsert({
+    await prisma.unit.upsert({
       where: { name: unit.name },
       update: {},
       create: {
         name: unit.name,
-        department: { connect: { id: department.id } }, // Connect to existing department
+        department: { connect: { id: department.id } },
       },
     });
   }
 
-  // Define test users with roles, departments, units, and room numbers
+  // 6. Seed users
   const testUsers = [
     {
       staffId: '001',
       name: 'Alice Admin',
-      email: 'alice.admin@example.com',
+      email: 'oforidesmond@rocketmail.com',
       roleName: 'admin',
       departmentName: 'it',
       unitName: 'network',
@@ -90,7 +154,7 @@ async function main() {
     },
     {
       staffId: '005',
-      name: 'Steve staff',
+      name: 'Steve Staff',
       email: 'steve.stores@example.com',
       roleName: 'user',
       departmentName: 'finance',
@@ -118,7 +182,7 @@ async function main() {
     {
       staffId: '008',
       name: 'Tina ITDApprover',
-      email: 'tina.itd@example.com',
+      email: 'ads21b00206y@ait.edu.gh',
       roleName: 'itd_approver',
       departmentName: 'it',
       unitName: 'hardware',
@@ -127,31 +191,18 @@ async function main() {
   ];
 
   for (const userData of testUsers) {
-    // Generate random password
     const randomPassword = crypto.randomBytes(5).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-    // Find department and unit
     const department = await prisma.department.findUnique({ where: { name: userData.departmentName } });
     const unit = await prisma.unit.findUnique({ where: { name: userData.unitName } });
-
-    // Find role
     const role = await prisma.role.findUnique({ where: { name: userData.roleName } });
 
-    if (!role) {
-      console.error(`Role "${userData.roleName}" not found for ${userData.email}`);
-      continue;
-    }
-    if (!department) {
-      console.error(`Department "${userData.departmentName}" not found for ${userData.email}`);
-      continue;
-    }
-    if (!unit) {
-      console.error(`Unit "${userData.unitName}" not found for ${userData.email}`);
+    if (!role || !department || !unit) {
+      console.error(`Missing data for ${userData.staffId}`);
       continue;
     }
 
-    // Create or update user
     const user = await prisma.user.upsert({
       where: { email: userData.email },
       update: {},
@@ -167,24 +218,34 @@ async function main() {
       },
     });
 
-    // Assign role to user (avoid duplicates)
     const existingUserRole = await prisma.userRole.findFirst({
       where: { userId: user.id, roleId: role.id },
     });
 
     if (!existingUserRole) {
       await prisma.userRole.create({
-        data: {
-          userId: user.id,
-          roleId: role.id,
-        },
+        data: { userId: user.id, roleId: role.id } as Prisma.UserRoleUncheckedCreateInput,
       });
     }
 
     console.log(`User ${userData.email} created with password: ${randomPassword}`);
   }
 
-  console.log('Test users seeded successfully.');
+  // 7. Update departments with approvers
+  for (const dept of departments) {
+    const approver = dept.deptApproverStaffId
+      ? await prisma.user.findUnique({ where: { staffId: dept.deptApproverStaffId } })
+      : null;
+
+    await prisma.department.update({
+      where: { name: dept.name },
+      data: {
+        deptApproverId: approver?.id || null,
+      },
+    });
+  }
+
+  console.log('Roles, permissions, departments, units, and users seeded successfully.');
 }
 
 main()

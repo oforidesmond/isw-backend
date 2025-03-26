@@ -89,7 +89,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
           subject: `New Requisition ${requisition.requisitionID} Awaiting ITD Approval`,
           html: `
             <p>Hello ${requisition.itdApprover.name},</p>
-            <p>A requisition (${requisition.requisitionID}) has been approved by the department and awaits your approval.</p>
+            <p>A requisition (${requisition.requisitionID}) has been approved by the requesting department and now awaits your approval.</p>
             <p>Please review it at your earliest convenience.</p>
             <p>Thanks,<br>ISW Team</p>
           `,

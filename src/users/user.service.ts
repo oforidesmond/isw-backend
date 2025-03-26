@@ -93,9 +93,13 @@ export class UserService {
     });
     if (!itdApprover) throw new NotFoundException('No ITD approver found in IT department');
 
+    // Generate requisitionID using a sequence
     const year = new Date().getFullYear();
-    const count = await tx.requisition.count({ where: { requisitionID: { startsWith: `REQ-${year}` } } });
-    const requisitionID = `REQ-${year}-${String(count + 1).padStart(3, '0')}`;
+    const sequenceResult = await tx.$queryRaw<{ nextval: number }[]>(
+      Prisma.sql`SELECT nextval('requisition_seq')`,
+    );
+    const sequenceNumber = sequenceResult[0].nextval;
+    const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(3, '0')}`;
 
       const requisition = await tx.requisition.create({
         data: {

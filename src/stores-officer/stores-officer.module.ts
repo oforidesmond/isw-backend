@@ -7,18 +7,16 @@ import { PrismaModule } from 'prisma/prisma.module';
 import { RolesGuard } from 'auth/roles.guard';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { ApprovalManagerService } from 'approval-manager/approval-manager.service';
+import { AuditModule } from 'audit/audit.module';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Module({
   imports: [
-    forwardRef(() => AuthModule),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret',
-      signOptions: { expiresIn: '1h' },
-    }),
+    AuditModule,
     PrismaModule,
   ],
   controllers: [StoresOfficerController],
-  providers: [StoresOfficerService,JwtAuthGuard, RolesGuard],
+  providers: [StoresOfficerService,JwtAuthGuard, RolesGuard, PrismaService],
     exports: [StoresOfficerService],
 })
 export class StoresOfficerModule {}

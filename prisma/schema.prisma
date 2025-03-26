@@ -27,8 +27,10 @@ enum AuditActionType {
   PERMISSION_REVOKED
   // Requisition Events
   REQUISITION_SUBMITTED
-  REQUISITION_APPROVED
-  REQUISITION_DECLINED
+   REQUISITION_DEPT_APPROVED
+  REQUISITION_DEPT_DECLINED
+  REQUISITION_ITD_APPROVED
+  REQUISITION_ITD_DECLINED
   REQUISITION_PROCESSED
   // Inventory Events
   INVENTORY_CREATED
@@ -75,11 +77,12 @@ enum Urgency {
 }
 
 enum RequisitionStatus {
-  SUBMITTED
   PENDING_DEPT_APPROVAL
   PENDING_ITD_APPROVAL
-  APPROVED
-  DECLINED
+  DEPT_APPROVED
+  ITD_APPROVED
+  DEPT_DECLINED
+  ITD_DECLINED
   PROCESSED
 }
 
@@ -183,6 +186,8 @@ model User {
   markedObsoleteInventories Inventory[] @relation("MarkedObsoleteBy")
   disposedInventories       Inventory[] @relation("DisposedBy")
 
+  issuedRequisitions Requisition[] @relation("IssuedRequisitions")
+
   @@map("users")
 }
 
@@ -232,7 +237,7 @@ model UserRole {
   userId    String
   roleId    String
   createdAt DateTime @default(now())
-  deletedAt DateTime 
+  deletedAt DateTime? 
 
   // Relationships
   user User @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
@@ -489,9 +494,12 @@ model Requisition {
   deptApprover       User?             @relation("DeptApprover", fields: [deptApproverId], references: [id], map: "requisition_deptApprover_fkey")
   itdApproverId      String?
   itdApprover        User?             @relation("ITDApprover", fields: [itdApproverId], references: [id], map: "requisition_itdApprover_fkey")
-  status             RequisitionStatus @default(SUBMITTED)
+  status             RequisitionStatus @default(PENDING_DEPT_APPROVAL)
   declineReason      String? // Mandatory if declined
   approvalSignatures Json? // Digital signatures from Approval Managers
+  issuedById         String?           // Added: Stores officer who issued it
+  issuedBy           User?             @relation("IssuedRequisitions", fields: [issuedById], references: [id]) // New relation
+  issuedAt           DateTime?         // Added: When it was issued
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
