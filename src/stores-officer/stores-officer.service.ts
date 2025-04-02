@@ -33,8 +33,10 @@ export class StoresOfficerService {
     data: {
       itItemId: string;
       quantity: number;
-      deviceDetails?: Record<string, any>;
       stockBatchId: string;
+      deviceDetails?: Record<string, any>;
+      disbursementNote?: string;
+      remarks?: string; 
     },
     ipAddress?: string,
     userAgent?: string,
@@ -60,8 +62,8 @@ export class StoresOfficerService {
       }
 
       const stockBatch = await tx.stockBatch.findUnique({ where: { id: data.stockBatchId } });
-      if (!stockBatch || stockBatch.quantity < data.quantity) {
-        throw new BadRequestException(`Invalid or insufficient stock batch ${data.stockBatchId}`);
+      if (!stockBatch || stockBatch.quantity < data.quantity || stockBatch.deletedAt) {
+        throw new BadRequestException(`Invalid, insufficient, or deleted stock batch ${data.stockBatchId}`);
       }
 
       const storesOfficer = await tx.user.findUnique({ where: { id: storesOfficerId }, select: { email: true, name: true } });
@@ -97,6 +99,8 @@ export class StoresOfficerService {
           requestDate: requisition.createdAt,
           issuedById: storesOfficerId,
           issueDate: new Date(),
+          disbursementNote: data.disbursementNote,
+          remarks: data.remarks,
         },
       });
 
@@ -217,6 +221,51 @@ export class StoresOfficerService {
       }
 
       return { message: `Requisition ${requisitionId} processed and emails queued`, inventoryId };
+    });
+  }
+
+   // fetch available stock batches
+   async getAvailableStockBatches(itItemId?: string) {
+    return this.prisma.stockBatch.findMany({
+      where: {
+        deletedAt: null,
+        quantity: { gt: 0 },
+        ...(itItemId && {
+          stockReceived: {
+            itItemId: itItemId, 
+          },
+        }),
+      },
+      include: {
+        stockReceived: {
+          select: {
+            itItem: { select: { id: true, brand: true, model: true } },
+            lpoReference: true,
+            dateReceived: true,
+          },
+        },
+      },
+      orderBy: { stockReceived: { dateReceived: 'desc' } },
+    });
+  }
+
+  // fetch available IT items
+  async getAvailableITItems() {
+    return this.prisma.iTItem.findMany({
+      where: {
+        deletedAt: null,
+        stock: { quantityInStock: { gt: 0 } },
+      },
+      select: {
+        id: true,
+        itemID: true,
+        deviceType: true,
+        itemClass: true,
+        brand: true,
+        model: true,
+        stock: { select: { quantityInStock: true } },
+      },
+      orderBy: { brand: 'asc' },
     });
   }
 }
