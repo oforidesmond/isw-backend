@@ -95,11 +95,11 @@ export class UserService {
 
     // Generate requisitionID using a sequence
     const year = new Date().getFullYear();
-    const sequenceResult = await tx.$queryRaw<{ nextval: number }[]>(
+    const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
       Prisma.sql`SELECT nextval('requisition_seq')`,
     );
     const sequenceNumber = sequenceResult[0].nextval;
-    const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(3, '0')}`;
+    const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(6, '0')}`;
 
       const requisition = await tx.requisition.create({
         data: {

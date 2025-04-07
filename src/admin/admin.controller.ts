@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Ip } from '@nestjs/common';
 // import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
@@ -10,6 +10,8 @@ import { UserQueryService } from './services/user-query.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RoleService } from './services/role.service';
 import { CreateRoleDto } from './dto/create-role.dto';
+import { AdminITItemsService } from './services/it-items.service';
+import { CreateITItemDto } from './dto/create-it-item.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -17,6 +19,7 @@ export class AdminController {
     private readonly userManagementService: UserManagementService,
     private readonly userQueryService: UserQueryService,
     private readonly roleService: RoleService,
+    private readonly adminITItemsService: AdminITItemsService,
   ) {}
 
   //get amdin profile
@@ -151,6 +154,18 @@ async updateRolePermissions(
       req.ip,
       req.headers['user-agent'],
     );
+  }
+
+  // Add new ItItem
+  @Post('ititems/new')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async createITItem(
+    @Body() dto: CreateITItemDto,
+    @Request() req, 
+    @Ip() ipAddress: string 
+   ) {
+    return this.adminITItemsService.createITItem(req.user.userId, dto, ipAddress, req.headers['user-agent']);
   }
 }
 

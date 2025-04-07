@@ -12,6 +12,7 @@ import { UserQueryService } from './services/user-query.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditModule } from 'audit/audit.module';
 import { RoleService } from './services/role.service';
+import { AdminITItemsService } from './services/it-items.service';
 // import { MailerService } from '@nestjs-modules/mailer';
 
 @Module({
@@ -28,7 +29,9 @@ import { RoleService } from './services/role.service';
     UserManagementService,
     UserQueryService,
     PrismaService,
-    RoleService
+    RoleService,
+    AdminITItemsService,
+    
   ],
 })
 export class AdminModule {}
