@@ -5,6 +5,7 @@ import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { AuditService } from 'audit/audit.service';
 import { Queue } from 'bull';
 import { PrismaService } from 'prisma/prisma.service';
+import { CreateStockReceivedDto } from './dto/create-stock-received.dto';
 
 interface ExtendedAuditPayload extends AuditPayload {
   details: {
@@ -266,6 +267,93 @@ export class StoresOfficerService {
         stock: { select: { quantityInStock: true } },
       },
       orderBy: { brand: 'asc' },
+    });
+  }
+
+  // Create Stock Received
+  async createStockReceived(
+    storesOfficerId: string,
+    dto: CreateStockReceivedDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const itItem = await tx.iTItem.findUnique({ where: { id: dto.itItemId } });
+      if (!itItem) throw new NotFoundException(`ITItem ${dto.itItemId} not found`);
+
+      const supplier = await tx.supplier.findUnique({ where: { id: dto.supplierId } });
+      if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found`);
+
+      const stockReceived = await tx.stockReceived.create({
+        data: {
+          lpoReference: dto.lpoReference,
+          voucherNumber: dto.voucherNumber,
+          lpoDate: new Date(dto.lpoDate),
+          itItemId: dto.itItemId,
+          quantityReceived: dto.quantityReceived,
+          supplierId: dto.supplierId,
+          warrantyPeriod: dto.warrantyPeriod,
+          receivedById: storesOfficerId,
+          dateReceived: new Date(dto.dateReceived),
+          remarks: dto.remarks,
+        },
+      });
+
+      const stockBatch = await tx.stockBatch.create({
+        data: {
+          stockReceivedId: stockReceived.id,
+          quantity: dto.quantityReceived,
+          warrantyPeriod: dto.warrantyPeriod,
+          expiryDate: dto.warrantyPeriod ? new Date(Date.now() + dto.warrantyPeriod * 30 * 24 * 60 * 60 * 1000) : undefined,
+        },
+      });
+
+      const stock = await tx.stock.upsert({
+        where: { itItemId: dto.itItemId },
+        update: { quantityInStock: { increment: dto.quantityReceived } },
+        create: { itItemId: dto.itItemId, quantityInStock: dto.quantityReceived },
+      });
+
+      const newState: Prisma.JsonObject = {
+        lpoReference: stockReceived.lpoReference,
+        voucherNumber: stockReceived.voucherNumber,
+        itItemId: stockReceived.itItemId,
+        quantityReceived: stockReceived.quantityReceived,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'STOCK_RECEIVED',
+        performedById: storesOfficerId,
+        affectedUserId: storesOfficerId,
+        entityType: 'StockReceived',
+        entityId: stockReceived.id,
+        oldState: null,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { stockBatchId: stockBatch.id },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return { message: `Stock received for ${itItem.brand} ${itItem.model}`, stockReceivedId: stockReceived.id };
+    });
+  }
+
+  //Get Suppliers
+  async getSuppliers() {
+    return this.prisma.supplier.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        supplierID: true,
+        name: true,
+        contactDetails: true,
+        lpoReference: true,
+        lpoDate: true,
+        voucherNumber: true,
+      },
+      orderBy: { name: 'asc' },
     });
   }
 }

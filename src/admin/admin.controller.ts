@@ -12,6 +12,8 @@ import { RoleService } from './services/role.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { AdminITItemsService } from './services/it-items.service';
 import { CreateITItemDto } from './dto/create-it-item.dto';
+import { CreateSupplierDto } from 'stores-officer/dto/create-stock-received.dto';
+import {SuppliersService} from './services/suppliers.service'
 
 @Controller('admin')
 export class AdminController {
@@ -20,6 +22,7 @@ export class AdminController {
     private readonly userQueryService: UserQueryService,
     private readonly roleService: RoleService,
     private readonly adminITItemsService: AdminITItemsService,
+    private readonly SuppliersService: SuppliersService
   ) {}
 
   //get amdin profile
@@ -166,6 +169,14 @@ async updateRolePermissions(
     @Ip() ipAddress: string 
    ) {
     return this.adminITItemsService.createITItem(req.user.userId, dto, ipAddress, req.headers['user-agent']);
+  }
+
+  // Add Suppliers
+  @Post('suppliers/create')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async createSupplier(@Body() dto: CreateSupplierDto, @Request() req) {
+    return this.SuppliersService.createSupplier(req.user.userId, dto, req.ip, req.headers['user-agent']);
   }
 }
 

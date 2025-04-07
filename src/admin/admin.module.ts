@@ -13,6 +13,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { AuditModule } from 'audit/audit.module';
 import { RoleService } from './services/role.service';
 import { AdminITItemsService } from './services/it-items.service';
+import { SuppliersService } from './services/suppliers.service';
 // import { MailerService } from '@nestjs-modules/mailer';
 
 @Module({
@@ -31,7 +32,8 @@ import { AdminITItemsService } from './services/it-items.service';
     PrismaService,
     RoleService,
     AdminITItemsService,
-    
+    SuppliersService
+
   ],
 })
 export class AdminModule {}

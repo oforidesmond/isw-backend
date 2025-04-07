@@ -36,8 +36,8 @@ export class AdminITItemsService {
           model: dto.model,
           defaultWarranty: dto.defaultWarranty,
           supplierId: dto.supplierId,
-          validationRules: dto.validationRules ? JSON.stringify(dto.validationRules) : undefined,
-          specifications: dto.specifications ? JSON.stringify(dto.specifications) : undefined,
+          validationRules: dto.validationRules,
+          specifications: dto.specifications
         },
       });
 

@@ -436,9 +436,9 @@ model Supplier {
   supplierID     String    @unique 
   name           String
   contactDetails String?
-  lpoReference   String 
-  lpoDate        DateTime
-  voucherNumber  String 
+  lpoReference   String? 
+  lpoDate        DateTime?
+  voucherNumber  String?
   remarks        String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
