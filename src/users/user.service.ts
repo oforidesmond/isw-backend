@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from 'audit/audit.service';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, RequisitionStatus } from '@prisma/client';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 // import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bull';
@@ -14,6 +14,7 @@ interface ExtendedAuditPayload extends AuditPayload {
     emailSent: {
       submitter: boolean;
       deptApprover: boolean;
+      itdApprover: boolean;
     };
   };
 }
@@ -38,69 +39,88 @@ export class UserService {
         department: { select: { id: true, name: true } },
         unit: { select: { id: true, name: true } },
         roomNo: true,
+        roles: { select: { role: { select: { name: true } } } },
       },
     });
 
     if (!user) throw new ForbiddenException('User not found');
-    return user;
+    return {
+      ...user,
+      roles: user.roles.map((r) => r.role.name),
+    };
   }
 
   async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
-
     return this.prisma.$transaction(async (tx) => {
-
       const user = await tx.user.findUnique({
         where: { id: userId },
-        select: { unitId: true, roomNo: true, email: true, name: true  },
+        select: { unitId: true, roomNo: true, email: true, name: true, departmentId: true },
       });
       if (!user) throw new NotFoundException(`User ${userId} not found`);
-
-      //Check and assign deptApprover
-    const department = await tx.department.findUnique({
-      where: { id: dto.departmentId },
-      select: { deptApproverId: true },
-    });
-    if (!department) throw new BadRequestException(`Department ${dto.departmentId} not found`);
-
-    let deptApproverId = department.deptApproverId;
-    if (!deptApproverId) {
-
-      const deptApprover = await tx.user.findFirst({
+  
+      // Generate requisitionID using a sequence
+      const year = new Date().getFullYear();
+      const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
+        Prisma.sql`SELECT nextval('requisition_seq')`,
+      );
+      const sequenceNumber = sequenceResult[0].nextval;
+      const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(6, '0')}`;
+  
+      // Check and assign deptApprover
+      const department = await tx.department.findUnique({
+        where: { id: dto.departmentId },
+        select: { deptApproverId: true, name: true },
+      });
+      if (!department) throw new BadRequestException(`Department ${dto.departmentId} not found`);
+  
+      let deptApproverId: string | null = null;
+      let deptApprover: { email: string; name: string } | null = null;
+      let status: RequisitionStatus;
+  
+      // Skip dept approval if requester's department is IT
+      const itDepartment = await tx.department.findFirst({
+        where: { name: { equals: 'it', mode: 'insensitive' } }, // Case-insensitive check
+        select: { id: true },
+      });
+      const isITRequest = dto.departmentId === itDepartment?.id;
+  
+      if (!isITRequest) {
+        status = RequisitionStatus.PENDING_DEPT_APPROVAL;
+        deptApproverId = department.deptApproverId;
+        if (!deptApproverId) {
+          const approver = await tx.user.findFirst({
+            where: {
+              departmentId: dto.departmentId,
+              roles: { some: { role: { name: 'dept_approver' } } },
+              isActive: true,
+            },
+            select: { id: true, email: true, name: true },
+          });
+          if (!approver) throw new NotFoundException(`No dept approver for ${dto.departmentId}`);
+          deptApproverId = approver.id;
+          deptApprover = approver; // Store for email use
+        } else {
+          deptApprover = await tx.user.findUnique({
+            where: { id: deptApproverId },
+            select: { email: true, name: true },
+          });
+          if (!deptApprover) throw new NotFoundException(`Department approver ${deptApproverId} not found`);
+        }
+      } else {
+        status = RequisitionStatus.PENDING_ITD_APPROVAL;
+      }
+  
+      const itdApprover = await tx.user.findFirst({
         where: {
-          departmentId: dto.departmentId,
-          roles: { some: { role: { name: 'dept_approver' } } },
-          isActive: true, 
+          departmentId: itDepartment?.id,
+          roles: { some: { role: { name: 'itd_approver' } } },
+          isActive: true,
         },
         select: { id: true, email: true, name: true },
       });
-      if (!deptApprover) throw new NotFoundException(`No department approver found for department ${dto.departmentId}`);
-      deptApproverId = deptApprover.id;
-    }
-
-    const itDepartment = await tx.department.findFirst({
-      where: { name: 'it' }, // use config or flag later
-      select: { id: true },
-    });
-    if (!itDepartment) throw new NotFoundException('IT department not found');
-
-    const itdApprover = await tx.user.findFirst({
-      where: {
-        departmentId: itDepartment.id,
-        roles: { some: { role: { name: 'itd_approver' } } },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-    if (!itdApprover) throw new NotFoundException('No ITD approver found in IT department');
-
-    // Generate requisitionID using a sequence
-    const year = new Date().getFullYear();
-    const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
-      Prisma.sql`SELECT nextval('requisition_seq')`,
-    );
-    const sequenceNumber = sequenceResult[0].nextval;
-    const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(6, '0')}`;
-
+      if (!itdApprover) throw new NotFoundException('No ITD approver found');
+      const itdApproverId = itdApprover.id;
+  
       const requisition = await tx.requisition.create({
         data: {
           requisitionID,
@@ -113,12 +133,12 @@ export class UserService {
           unitId: dto.unitId || user.unitId,
           departmentId: dto.departmentId,
           roomNo: dto.roomNo || user.roomNo,
-          status: 'PENDING_DEPT_APPROVAL',
+          status,
           deptApproverId,
-          itdApproverId: itdApprover.id,
+          itdApproverId,
         },
       });
-
+  
       const newState: Prisma.JsonObject = {
         requisitionID: requisition.requisitionID,
         itemDescription: requisition.itemDescription,
@@ -127,9 +147,9 @@ export class UserService {
         purpose: requisition.purpose,
         status: requisition.status,
       };
-
+  
       const auditPayload: ExtendedAuditPayload = {
-        actionType:'REQUISITION_SUBMITTED',
+        actionType: 'REQUISITION_SUBMITTED',
         performedById: userId,
         affectedUserId: userId,
         entityType: 'Requisition',
@@ -138,53 +158,76 @@ export class UserService {
         newState,
         ipAddress,
         userAgent,
-        details: { 
+        details: {
           departmentId: dto.departmentId,
-          emailSent: { submitter: false, deptApprover: false }
+          emailSent: {
+            submitter: false,
+            deptApprover: false,
+            itdApprover: false,
+          },
         },
       };
-
-       const deptApprover = await tx.user.findUnique({
-        where: { id: deptApproverId },
-        select: { email: true, name: true },
-      });
-
-      await this.emailQueue.add('send-email', {
-        to: user.email,
-        subject: `Requisition ${requisitionID} Submitted`,
-        html: `
-          <p>Hello ${user.name},</p>
-          <p>Your requisition (${requisitionID}) has been successfully submitted.</p>
-          <p>It is now pending department approval.</p>
-          <p>Thanks,<br>ISW Team</p>
-        `,
-      },{
-        attempts: 3,
-        backoff: 5000,
-      });
+  
+      // Email submitter
+      await this.emailQueue.add(
+        'send-email',
+        {
+          to: user.email,
+          subject: `Requisition ${requisitionID} Submitted`,
+          html: `
+            <p>Hello ${user.name},</p>
+            <p>Your requisition (${requisitionID}) has been successfully submitted.</p>
+            <p>It is now ${status === RequisitionStatus.PENDING_DEPT_APPROVAL ? 'pending department approval' : 'pending ITD approval'}.</p>
+            <p>Thanks,<br>ISW Team</p>
+          `,
+        },
+        { attempts: 3, backoff: 5000 },
+      );
       auditPayload.details.emailSent.submitter = true;
-
-      await this.emailQueue.add('send-email', {
-        to: deptApprover.email,
-        subject: `New Requisition ${requisitionID} Awaiting Department Approval`,
-        html: `
-          <p>Hello ${deptApprover.name},</p>
-          <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
-          <p>Please review it at your earliest convenience.</p>
-          <p>Thanks,<br>ISW Team</p>
-        `,
-      },{
-        attempts: 3,
-        backoff: 5000,
-      });
-      auditPayload.details.emailSent.deptApprover = true;
-
+  
+      // Email department approver (only if not IT request)
+      if (!isITRequest && deptApproverId && deptApprover) {
+        await this.emailQueue.add(
+          'send-email',
+          {
+            to: deptApprover.email,
+            subject: `New Requisition ${requisitionID} Awaiting Approval`,
+            html: `
+              <p>Hello ${deptApprover.name},</p>
+              <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
+              <p>Please review it at your earliest convenience.</p>
+              <p>Thanks,<br>ISW Team</p>
+            `,
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        auditPayload.details.emailSent.deptApprover = true;
+      }
+  
+      // Email ITD approver (only if IT request, i.e., direct ITD approval)
+      if (isITRequest) {
+        await this.emailQueue.add(
+          'send-email',
+          {
+            to: itdApprover.email,
+            subject: `New Requisition ${requisitionID} Awaiting ITD Approval`,
+            html: `
+              <p>Hello ${itdApprover.name},</p>
+              <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
+              <p>Status: ${requisition.status}</p>
+              <p>Thanks,<br>ISW Team</p>
+            `,
+          },
+          { attempts: 3, backoff: 5000 },
+        );
+        auditPayload.details.emailSent.itdApprover = true;
+      }
+  
       await this.auditService.logAction(auditPayload, tx);
-
+  
       return requisition;
     });
   }
-
 
  async getUserRequisitions(userId: string, ipAddress?: string, userAgent?: string) {
     const requisitions = await this.prisma.requisition.findMany({

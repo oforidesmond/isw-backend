@@ -25,6 +25,21 @@ export class ItdApprovalManagerService {
   )
 {} 
 
+async getPendingRequisitions(approverId: string) {
+  return this.prisma.requisition.findMany({
+    where: {
+      itdApproverId: approverId,
+      status: 'PENDING_ITD_APPROVAL', 
+      deletedAt: null,
+    },
+    include: {
+      staff: { select: { name: true, email: true } },
+      department: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 async approveRequisition(requisitionId: string, approverId: string, ipAddress?: string, userAgent?: string) {
   return this.prisma.$transaction(async (tx) => {
     const requisition = await tx.requisition.findUnique({

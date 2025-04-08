@@ -24,6 +24,30 @@ export class ApprovalManagerService {
   @InjectQueue('email-queue') private readonly emailQueue: Queue,
 ) {}
 
+async getPendingRequisitions(approverId: string) {
+  const approver = await this.prisma.user.findUnique({
+    where: { id: approverId },
+    select: { departmentId: true },
+  });
+  if (!approver || !approver.departmentId) {
+    throw new BadRequestException('Approver not assigned to a department');
+  }
+
+  return this.prisma.requisition.findMany({
+    where: {
+      deptApproverId: approverId,
+      status: 'PENDING_DEPT_APPROVAL',
+      deletedAt: null,
+      departmentId: approver.departmentId,
+    },
+    include: {
+      staff: { select: { name: true, email: true } },
+      department: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 async approveRequisition(requisitionId: string, approverId: string, ipAddress?: string, userAgent?: string) {
   return this.prisma.$transaction(async (tx) => {
     const requisition = await tx.requisition.findUnique({
