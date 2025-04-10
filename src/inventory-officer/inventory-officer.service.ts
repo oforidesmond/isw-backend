@@ -1,7 +1,7 @@
-import { InjectQueue } from '@nestjs/bull';
+// import { InjectQueue } from '@nestjs/bull';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from 'audit/audit.service';
-import { Queue } from 'bull';
+// import { Queue } from 'bull';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateDeviceDetailsDto, UpdateInventoryDto } from './dto/update-inventory.dto';
 import { AuditActionType, InventoryStatus, Prisma } from '@prisma/client';
@@ -21,7 +21,7 @@ export class InventoryOfficerService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    @InjectQueue('email-queue') private readonly emailQueue: Queue,
+    // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   // Get All Inventory Items
@@ -42,7 +42,7 @@ export class InventoryOfficerService {
     });
   }
 
-  //Update Inventory Main Fields (eg., userId, departmentId)
+  // Update Inventory Main Fields (eg., userId, departmentId)
   async updateInventory(
     inventoryId: string,
     officerId: string,
@@ -125,61 +125,61 @@ export class InventoryOfficerService {
         details: { itItemId: inventory.itItemId, emailsQueued: { storesOfficer: false } },
       };
 
-      // Notify stores officer if userId, departmentId, or unitId changed
-      if (notifyFieldsChanged.userId || notifyFieldsChanged.departmentId || notifyFieldsChanged.unitId) {
-        const storesOfficer = await tx.user.findFirst({
-          where: { roles: { some: { role: { name: 'stores_officer' } } }, isActive: true },
-          select: { email: true, name: true },
-        });
+      // // Notify stores officer if userId, departmentId, or unitId changed
+      // if (notifyFieldsChanged.userId || notifyFieldsChanged.departmentId || notifyFieldsChanged.unitId) {
+      //   const storesOfficer = await tx.user.findFirst({
+      //     where: { roles: { some: { role: { name: 'stores_officer' } } }, isActive: true },
+      //     select: { email: true, name: true },
+      //   });
 
-        const user = dto.userId
-        ? await tx.user.findUnique({ where: { id: dto.userId }, select: { name: true } })
-        : null;
-      const department = dto.departmentId
-        ? await tx.department.findUnique({ where: { id: dto.departmentId }, select: { name: true } })
-        : null;
-      const unit = dto.unitId
-        ? await tx.unit.findUnique({ where: { id: dto.unitId }, select: { name: true } })
-        : null;
+      //   const user = dto.userId
+      //     ? await tx.user.findUnique({ where: { id: dto.userId }, select: { name: true } })
+      //     : null;
+      //   const department = dto.departmentId
+      //     ? await tx.department.findUnique({ where: { id: dto.departmentId }, select: { name: true } })
+      //     : null;
+      //   const unit = dto.unitId
+      //     ? await tx.unit.findUnique({ where: { id: dto.unitId }, select: { name: true } })
+      //     : null;
 
-        if (storesOfficer) {
-          try {
-            await this.emailQueue.add(
-              'send-email',
-              {
-                to: storesOfficer.email,
-                subject: `Inventory ${inventory.assetId} Assignment Updated`,
-                html: `
-                  <p>Hello ${storesOfficer.name},</p>
-                  <p>Inventory asset ${inventory.assetId} (${inventory.itItem.brand} ${inventory.itItem.model}) has been updated:</p>
-                  ${
-                    notifyFieldsChanged.userId
-                      ? `<p>- Assigned User changed to: ${user?.name || 'Unknown'}</p>`
-                      : ''
-                  }
-                  ${
-                    notifyFieldsChanged.departmentId
-                      ? `<p>- Department changed to: ${department?.name || 'Unknown'}</p>`
-                      : ''
-                  }
-                  ${
-                    notifyFieldsChanged.unitId
-                      ? `<p>- Unit changed to: ${unit?.name || (dto.unitId === null ? 'None' : 'Unknown')}</p>`
-                      : ''
-                  }
-                  <p>Please review the changes in your ISW portal.</p>
-                  <p>Thanks,<br>ISW Team</p>
-                `,
-              },
-              { attempts: 3, backoff: 5000 },
-            );
-            auditPayload.details.emailsQueued.storesOfficer = true;
-          } catch (error) {
-            console.error(`Failed to queue email for ${storesOfficer.email}:`, error.message);
-            auditPayload.details.emailsQueued.storesOfficer = false;
-          }
-        }
-      }
+      //   if (storesOfficer) {
+      //     try {
+      //       await this.emailQueue.add(
+      //         'send-email',
+      //         {
+      //           to: storesOfficer.email,
+      //           subject: `Inventory ${inventory.assetId} Assignment Updated`,
+      //           html: `
+      //             <p>Hello ${storesOfficer.name},</p>
+      //             <p>Inventory asset ${inventory.assetId} (${inventory.itItem.brand} ${inventory.itItem.model}) has been updated:</p>
+      //             ${
+      //               notifyFieldsChanged.userId
+      //                 ? `<p>- Assigned User changed to: ${user?.name || 'Unknown'}</p>`
+      //                 : ''
+      //             }
+      //             ${
+      //               notifyFieldsChanged.departmentId
+      //                 ? `<p>- Department changed to: ${department?.name || 'Unknown'}</p>`
+      //                 : ''
+      //             }
+      //             ${
+      //               notifyFieldsChanged.unitId
+      //                 ? `<p>- Unit changed to: ${unit?.name || (dto.unitId === null ? 'None' : 'Unknown')}</p>`
+      //                 : ''
+      //             }
+      //             <p>Please review the changes in your ISW portal.</p>
+      //             <p>Thanks,<br>ISW Team</p>
+      //           `,
+      //         },
+      //         { attempts: 3, backoff: 5000 },
+      //       );
+      //       auditPayload.details.emailsQueued.storesOfficer = true;
+      //     } catch (error) {
+      //       console.error(`Failed to queue email for ${storesOfficer.email}:`, error.message);
+      //       auditPayload.details.emailsQueued.storesOfficer = false;
+      //     }
+      //   }
+      // }
 
       await this.auditService.logAction(auditPayload, tx);
       return { message: `Inventory ${inventoryId} updated` };

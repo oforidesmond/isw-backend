@@ -16,7 +16,7 @@ import { StoresOfficerModule } from './stores-officer/stores-officer.module';
 import { InventoryOfficerModule } from './inventory-officer/inventory-officer.module';
 import { HardwareTechnicianModule } from './hardware-technician/hardware-technician.module';
 import { AuditModule } from './audit/audit.module';
-import { QueueModule } from 'queue.module';
+// import { QueueModule } from 'queue.module';
 
 @Module({
   imports: [
@@ -36,7 +36,7 @@ import { QueueModule } from 'queue.module';
         },
       },
     }),
-    QueueModule,
+    // QueueModule,
     AuthModule,
     UserModule,
     PrismaModule,

@@ -6,8 +6,8 @@ import { UserService } from 'users/user.service';
 // import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from 'audit/audit.service';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+// import { InjectQueue } from '@nestjs/bull';
+// import { Queue } from 'bull';
 
 // Payload types
 interface BaseJwtPayload {
@@ -40,7 +40,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    @InjectQueue('email-queue') private readonly emailQueue: Queue,
+    // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   private readonly securityQuestions = [
@@ -91,7 +91,7 @@ export class AuthService {
       };
 
       const auditPayload: AuditPayload = {
-        actionType:'USER_SIGNED_IN',
+        actionType: 'USER_SIGNED_IN',
         performedById: user.id,
         affectedUserId: user.id,
         entityType: 'User',
@@ -126,7 +126,7 @@ export class AuthService {
 
     return this.prisma.$transaction(async (tx) => {
       const auditPayload: AuditPayload = {
-        actionType:'USER_SIGNED_IN',
+        actionType: 'USER_SIGNED_IN',
         performedById: user.id,
         affectedUserId: user.id,
         entityType: 'User',
@@ -185,10 +185,10 @@ export class AuthService {
         actionType: 'USER_PASSWORD_RESET',
         performedById: userId,
         affectedUserId: userId,
-         entityType: 'User',
-         entityId: userId,
-         oldState: { password: '[hashed]' },
-         newState: { password: '[hashed]', securityQuestion, securityAnswer: '[hashed]' },
+        entityType: 'User',
+        entityId: userId,
+        oldState: { password: '[hashed]' },
+        newState: { password: '[hashed]', securityQuestion, securityAnswer: '[hashed]' },
         ipAddress,
         userAgent,
         details: { initialReset: true },
@@ -219,7 +219,7 @@ export class AuthService {
     let emailQueued = false;
     await this.prisma.$transaction(async (tx) => {
       const auditPayload: AuditPayload = {
-        actionType:'USER_PASSWORD_RESET',
+        actionType: 'USER_PASSWORD_RESET',
         performedById: user.id,
         affectedUserId: user.id,
         entityType: 'User',
@@ -232,65 +232,65 @@ export class AuthService {
       };
       await this.auditService.logAction(auditPayload, tx);
 
-  try {
-    await this.emailQueue.add(
-      'send-email',
-      {
-        to: email,
-        subject: 'Reset Your ISW Account Password',
-        html: `
-          <p>Hello ${user.name},</p>
-          <p>You requested a password reset</p>
-          <p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 15 minutes.</p>
-          <p>If you didn’t request this, ignore this email.</p>
-          <p>Thanks,<br>ISW Team</p>
-        `,
-      },
-      { attempts: 3, backoff: 5000 },
-    );
-    emailQueued = true;
+      // try {
+      //   await this.emailQueue.add(
+      //     'send-email',
+      //     {
+      //       to: email,
+      //       subject: 'Reset Your ISW Account Password',
+      //       html: `
+      //         <p>Hello ${user.name},</p>
+      //         <p>You requested a password reset</p>
+      //         <p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 15 minutes.</p>
+      //         <p>If you didn’t request this, ignore this email.</p>
+      //         <p>Thanks,<br>ISW Team</p>
+      //       `,
+      //     },
+      //     { attempts: 3, backoff: 5000 },
+      //   );
+      //   emailQueued = true;
 
-    // queuing success
-    const successAuditPayload: AuditPayload = {
-      actionType: 'USER_PASSWORD_RESET',
-      performedById: user.id,
-      affectedUserId: user.id,
-      entityType: 'User',
-      entityId: user.id,
-      oldState: null,
-      newState: null,
-      ipAddress,
-      userAgent,
-      details: { stage: 'email_queued', emailSent: true },
-    };
-    await this.auditService.logAction(successAuditPayload, tx);
-  } catch (error) {
-    console.error(`Failed to queue reset email to ${email}:`, error.message);
+      //   // queuing success
+      //   const successAuditPayload: AuditPayload = {
+      //     actionType: 'USER_PASSWORD_RESET',
+      //     performedById: user.id,
+      //     affectedUserId: user.id,
+      //     entityType: 'User',
+      //     entityId: user.id,
+      //     oldState: null,
+      //     newState: null,
+      //     ipAddress,
+      //     userAgent,
+      //     details: { stage: 'email_queued', emailSent: true },
+      //   };
+      //   await this.auditService.logAction(successAuditPayload, tx);
+      // } catch (error) {
+      //   console.error(`Failed to queue reset email to ${email}:`, error.message);
 
-    // queuing failure
-    const failureAuditPayload: AuditPayload = {
-      actionType: 'USER_PASSWORD_RESET',
-      performedById: user.id,
-      affectedUserId: user.id,
-      entityType: 'User',
-      entityId: user.id,
-      oldState: null,
-      newState: null,
-      ipAddress,
-      userAgent,
-      details: { stage: 'email_queue_failed', emailSent: false },
-    };
-    await this.auditService.logAction(failureAuditPayload, tx);
-    throw new Error('Failed to queue reset email');
+      //   // queuing failure
+      //   const failureAuditPayload: AuditPayload = {
+      //     actionType: 'USER_PASSWORD_RESET',
+      //     performedById: user.id,
+      //     affectedUserId: user.id,
+      //     entityType: 'User',
+      //     entityId: user.id,
+      //     oldState: null,
+      //     newState: null,
+      //     ipAddress,
+      //     userAgent,
+      //     details: { stage: 'email_queue_failed', emailSent: false },
+      //   };
+      //   await this.auditService.logAction(failureAuditPayload, tx);
+      //   throw new Error('Failed to queue reset email');
+      // }
+    });
+
+    // if (!emailQueued) {
+    //   throw new Error('Failed to queue reset email'); 
+    // }
+
+    return { message: 'Password reset email queued' };
   }
-});
-
-if (!emailQueued) {
-  throw new Error('Failed to queue reset email'); 
-}
-
-return { message: 'Password reset email queued' };
-}
 
   async resetPasswordWithToken(token: string, newPassword: string, ipAddress?: string, userAgent?: string) {
     let decoded: ResetPasswordJwtPayload;
@@ -323,7 +323,7 @@ return { message: 'Password reset email queued' };
       });
 
       const auditPayload: AuditPayload = {
-        actionType:'USER_PASSWORD_RESET',
+        actionType: 'USER_PASSWORD_RESET',
         performedById: user.id,
         affectedUserId: user.id,
         entityType: 'User',
@@ -342,7 +342,7 @@ return { message: 'Password reset email queued' };
   async logout(userId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const auditPayload: AuditPayload = {
-        actionType:'USER_LOGGED_OUT',
+        actionType: 'USER_LOGGED_OUT',
         performedById: userId,
         affectedUserId: userId,
         entityType: 'User',

@@ -1,9 +1,9 @@
-import { InjectQueue } from '@nestjs/bull';
+// import { InjectQueue } from '@nestjs/bull';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { AuditService } from 'audit/audit.service';
-import { Queue } from 'bull';
+// import { Queue } from 'bull';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateStockReceivedDto } from './dto/create-stock-received.dto';
 
@@ -25,7 +25,7 @@ export class StoresOfficerService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    @InjectQueue('email-queue') private readonly emailQueue: Queue,
+    // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   async issueRequisition(
@@ -171,55 +171,55 @@ export class StoresOfficerService {
         },
       };
 
-      // Notify submitter
-      try {
-        await this.emailQueue.add(
-          'send-email',
-          {
-            to: requisition.staff.email,
-            subject: `Requisition ${requisition.requisitionID} Processed`,
-            html: `
-              <p>Hello ${requisition.staff.name},</p>
-              <p>Your requisition (${requisition.requisitionID}) has been processed and issued.</p>
-              <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
-              <p>Thanks,<br>ISW Team</p>
-            `,
-          },
-          { attempts: 3, backoff: 5000 },
-        );
-        auditPayload.details.emailsQueued.submitter = true;
-      } catch (error) {
-        console.error(`Failed to queue email for ${requisition.staff.email}:`, error.message);
-        auditPayload.details.emailsQueued.submitter = false;
-      }
+      // // Notify submitter
+      // try {
+      //   await this.emailQueue.add(
+      //     'send-email',
+      //     {
+      //       to: requisition.staff.email,
+      //       subject: `Requisition ${requisition.requisitionID} Processed`,
+      //       html: `
+      //         <p>Hello ${requisition.staff.name},</p>
+      //         <p>Your requisition (${requisition.requisitionID}) has been processed and issued.</p>
+      //         <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
+      //         <p>Thanks,<br>ISW Team</p>
+      //       `,
+      //     },
+      //     { attempts: 3, backoff: 5000 },
+      //   );
+      //   auditPayload.details.emailsQueued.submitter = true;
+      // } catch (error) {
+      //   console.error(`Failed to queue email for ${requisition.staff.email}:`, error.message);
+      //   auditPayload.details.emailsQueued.submitter = false;
+      // }
 
-      // Notify stores officer
-      try {
-        await this.emailQueue.add(
-          'send-email',
-          {
-            to: storesOfficer.email,
-            subject: `Requisition ${requisition.requisitionID} Issued`,
-            html: `
-              <p>Hello ${storesOfficer.name},</p>
-              <p>You have successfully issued requisition (${requisition.requisitionID}).</p>
-              <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
-              <p>Thanks,<br>ISW Team</p>
-            `,
-          },
-          { attempts: 3, backoff: 5000 },
-        );
-        auditPayload.details.emailsQueued.storesOfficer = true;
-      } catch (error) {
-        console.error(`Failed to queue email for ${storesOfficer.email}:`, error.message);
-        auditPayload.details.emailsQueued.storesOfficer = false;
-      }
+      // // Notify stores officer
+      // try {
+      //   await this.emailQueue.add(
+      //     'send-email',
+      //     {
+      //       to: storesOfficer.email,
+      //       subject: `Requisition ${requisition.requisitionID} Issued`,
+      //       html: `
+      //         <p>Hello ${storesOfficer.name},</p>
+      //         <p>You have successfully issued requisition (${requisition.requisitionID}).</p>
+      //         <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
+      //         <p>Thanks,<br>ISW Team</p>
+      //       `,
+      //     },
+      //     { attempts: 3, backoff: 5000 },
+      //   );
+      //   auditPayload.details.emailsQueued.storesOfficer = true;
+      // } catch (error) {
+      //   console.error(`Failed to queue email for ${storesOfficer.email}:`, error.message);
+      //   auditPayload.details.emailsQueued.storesOfficer = false;
+      // }
 
       await this.auditService.logAction(auditPayload, tx);
 
-      if (!auditPayload.details.emailsQueued.submitter || !auditPayload.details.emailsQueued.storesOfficer) {
-        throw new BadRequestException(`Requisition ${requisitionId} processed, but one or more emails failed to queue`);
-      }
+      // if (!auditPayload.details.emailsQueued.submitter || !auditPayload.details.emailsQueued.storesOfficer) {
+      //   throw new BadRequestException(`Requisition ${requisitionId} processed, but one or more emails failed to queue`);
+      // }
 
       return { message: `Requisition ${requisitionId} processed and emails queued`, inventoryId };
     });

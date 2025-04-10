@@ -4,16 +4,15 @@ import { PrismaService } from "prisma/prisma.service";
 import { CreateMaintenanceTicketDto, SearchDevicesDto } from "./dto/hardware-technician.dto";
 import { Prisma } from "@prisma/client";
 import { AuditPayload } from "admin/interfaces/audit-payload.interface";
-import { InjectQueue } from "@nestjs/bull";
-import { Queue } from "bull";
-
+// import { InjectQueue } from "@nestjs/bull";
+// import { Queue } from "bull";
 
 @Injectable()
 export class HardwareTechnicianService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    @InjectQueue('email-queue') private readonly emailQueue: Queue,
+    // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
   async createMaintenanceTicket(
@@ -88,29 +87,29 @@ export class HardwareTechnicianService {
         details: { itItemId: inventory.itItemId },
       };
 
-      try {
-        await this.emailQueue.add(
-          'send-email',
-          {
-            to: user.email,
-            subject: `Maintenance Ticket ${ticket.ticketId} Created`,
-            html: `
-              <p>Hello ${user.name},</p>
-              <p>A maintenance ticket (${ticket.ticketId}) has been created for your device (${inventory.itItem.brand} ${inventory.itItem.model}).</p>
-              <p>Issue: ${dto.issueType}</p>
-              <p>Description: ${dto.description}</p>
-              <p>Priority: ${dto.priority}</p>
-              <p>Please check the ISW portal for updates.</p>
-              <p>Thanks,<br>ISW Team</p>
-            `,
-          },
-          { attempts: 3, backoff: 5000 },
-        );
-        auditPayload.details = { ...auditPayload.details, emailsQueued: { user: true } };
-      } catch (error) {
-        console.error(`Failed to queue email for ${user.email}:`, error.message);
-        auditPayload.details = { ...auditPayload.details, emailsQueued: { user: false } };
-      }
+      // try {
+      //   await this.emailQueue.add(
+      //     'send-email',
+      //     {
+      //       to: user.email,
+      //       subject: `Maintenance Ticket ${ticket.ticketId} Created`,
+      //       html: `
+      //         <p>Hello ${user.name},</p>
+      //         <p>A maintenance ticket (${ticket.ticketId}) has been created for your device (${inventory.itItem.brand} ${inventory.itItem.model}).</p>
+      //         <p>Issue: ${dto.issueType}</p>
+      //         <p>Description: ${dto.description}</p>
+      //         <p>Priority: ${dto.priority}</p>
+      //         <p>Please check the ISW portal for updates.</p>
+      //         <p>Thanks,<br>ISW Team</p>
+      //       `,
+      //     },
+      //     { attempts: 3, backoff: 5000 },
+      //   );
+      //   auditPayload.details = { ...auditPayload.details, emailsQueued: { user: true } };
+      // } catch (error) {
+      //   console.error(`Failed to queue email for ${user.email}:`, error.message);
+      //   auditPayload.details = { ...auditPayload.details, emailsQueued: { user: false } };
+      // }
 
       await this.auditService.logAction(auditPayload, tx);
       return { message: `Maintenance ticket ${ticket.ticketId} created`, ticketId: ticket.id };
