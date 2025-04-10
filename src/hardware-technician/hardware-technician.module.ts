@@ -6,18 +6,15 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from 'prisma/prisma.module';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
+import { AuditModule } from 'audit/audit.module';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Module({
   imports: [
-    forwardRef(() => AuthModule),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret',
-      signOptions: { expiresIn: '1h' },
-    }),
-    PrismaModule,
+    PrismaModule, AuditModule
   ],
   controllers: [HardwareTechnicianController],
-  providers: [HardwareTechnicianService,JwtAuthGuard, RolesGuard],
+  providers: [HardwareTechnicianService,JwtAuthGuard, RolesGuard, PrismaService],
     exports: [HardwareTechnicianService],
 })
 export class HardwareTechnicianModule {}
