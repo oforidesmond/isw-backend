@@ -62,9 +62,12 @@ export class HardwareTechnicianService {
         if (!returnedBy) throw new NotFoundException(`Technician ${dto.technicianReturnedById} not found`);
       }
 
-      const year = new Date().getFullYear();
-      const count = await tx.maintenanceTicket.count({ where: { ticketId: { startsWith: `TKT-${year}` } } });
-      const ticketId = `TKT-${year}-${String(count + 1).padStart(6, '0')}`;
+      // Generate TicketID using a sequence
+      const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>( 
+        Prisma.sql`SELECT nextval('ticket_id_seq')`
+      );
+      const sequenceNumber = sequenceResult[0].nextval;
+      const ticketId = `TKT-${String(sequenceNumber).padStart(6, '0')}`;
 
       const ticketData: Prisma.MaintenanceTicketCreateInput = {
         ticketId,
@@ -75,6 +78,8 @@ export class HardwareTechnicianService {
         department: { connect: { id: dto.departmentId } },
         description: dto.description,
         priority: dto.priority,
+        auditedBy: { connect: { id: technicianId } },
+        auditDate: new Date(),
       };
 
       if (dto.unitId) ticketData.unit = { connect: { id: dto.unitId } };
@@ -99,6 +104,8 @@ export class HardwareTechnicianService {
         technicianReturnedById: ticket.technicianReturnedById,
         dateResolved: ticket.dateResolved?.toISOString(),
         remarks: ticket.remarks,
+        auditedById: ticket.auditedById,
+        auditDate: ticket.auditDate?.toISOString(),
       };
 
       const auditPayload: ExtendedAuditPayload = {
@@ -174,9 +181,14 @@ export class HardwareTechnicianService {
         technicianReturnedById: ticket.technicianReturnedById,
         dateResolved: ticket.dateResolved?.toISOString(),
         remarks: ticket.remarks,
+        auditedById: ticket.auditedById,
+        auditDate: ticket.auditDate?.toISOString(),
       };
 
-      const updateData: Prisma.MaintenanceTicketUpdateInput = {};
+      const updateData: Prisma.MaintenanceTicketUpdateInput = {
+        auditedBy: { connect: { id: technicianId } },
+        auditDate: new Date(), 
+      };
       if (dto.actionTaken !== undefined) updateData.actionTaken = dto.actionTaken;
       if (dto.technicianReturnedById !== undefined) {
         updateData.technicianReturned = dto.technicianReturnedById
@@ -196,6 +208,8 @@ export class HardwareTechnicianService {
         technicianReturnedById: updatedTicket.technicianReturnedById,
         dateResolved: updatedTicket.dateResolved?.toISOString(),
         remarks: updatedTicket.remarks,
+        auditedById: updatedTicket.auditedById,
+        auditDate: updatedTicket.auditDate?.toISOString(),
       };
 
       const auditPayload: ExtendedAuditPayload = {
@@ -264,7 +278,7 @@ export class HardwareTechnicianService {
       if (dto.dateResolvedTo) where.dateResolved.lte = new Date(dto.dateResolvedTo);
     }
     if (dto.status) {
-      // Map custom status to fields (assuming no explicit status field, infer from dateResolved)
+      // Map custom status to fields (infer from dateResolved)
       if (dto.status === 'OPEN') where.dateResolved = null;
       if (dto.status === 'RESOLVED') where.dateResolved = { not: null };
     }

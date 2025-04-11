@@ -59,12 +59,11 @@ export class UserService {
       if (!user) throw new NotFoundException(`User ${userId} not found`);
   
       // Generate requisitionID using a sequence
-      const year = new Date().getFullYear();
       const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
         Prisma.sql`SELECT nextval('requisition_seq')`,
       );
       const sequenceNumber = sequenceResult[0].nextval;
-      const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(6, '0')}`;
+      const requisitionID = `REQ-${String(sequenceNumber).padStart(6, '0')}`;
   
       // Check and assign deptApprover
       const department = await tx.department.findUnique({
