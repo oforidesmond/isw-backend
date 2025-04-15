@@ -9,6 +9,14 @@ import { CreateStockReceivedDto } from './dto/create-stock-received.dto';
 export class StoresOfficerController {
   constructor(private readonly storesOfficerService: StoresOfficerService) {}
 
+  // Get all approved requisitions
+  @Get('reqs/approved')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('stores_officer')
+  async getApprovedRequisitions() {
+    return this.storesOfficerService.getApprovedRequisitions();
+  }
+
 // Issue Requisition
   @Patch('req/:reqId/issue')
   @UseGuards(JwtAuthGuard, RolesGuard)
