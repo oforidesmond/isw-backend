@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsEnum, IsDateString } from 'class-validator';
-import { IssueType, Priority } from '@prisma/client';
+import { IsOptional, IsString, IsEnum, IsDateString, IsNumberString } from 'class-validator';
+import { IssueType, Priority, RequisitionStatus, Urgency } from '@prisma/client';
 
 export class MaintenanceReportDto {
   @IsOptional()
@@ -57,4 +57,48 @@ export class OverdueTicketsReportDto {
   @IsOptional()
   @IsString()
   departmentId?: string;
+}
+
+export class RequisitionReportDto {
+  @IsOptional()
+  @IsDateString()
+  startDate?: string; 
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsEnum(RequisitionStatus)
+  status?: RequisitionStatus;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsEnum(Urgency)
+  urgency?: Urgency;
+
+  @IsOptional()
+  @IsString()
+  staffId?: string;
+
+  @IsOptional()
+  @IsString()
+  itItemId?: string;
+}
+
+export class RequisitionApprovalDelaysDto {
+  @IsOptional()
+  @IsNumberString()
+  thresholdDays?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  approverId?: string; // deptApproverId or itdApproverId
 }

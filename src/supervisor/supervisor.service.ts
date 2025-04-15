@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { MaintenanceReportDto, OverdueTicketsReportDto, WorkReportDto } from './dto/supervisor.dto';
+import { MaintenanceReportDto, OverdueTicketsReportDto, RequisitionApprovalDelaysDto, RequisitionReportDto, WorkReportDto } from './dto/supervisor.dto';
 
 @Injectable()
 export class SupervisorService {
@@ -166,5 +166,296 @@ export class SupervisorService {
         (new Date().getTime() - ticket.dateLogged.getTime()) / (1000 * 60 * 60 * 24)
       ),
     }));
+  }
+
+  async getRequisitionStatusSummary(dto: RequisitionReportDto) {
+    const where: Prisma.RequisitionWhereInput = { deletedAt: null };
+
+    if (dto.startDate) where.createdAt = { gte: new Date(dto.startDate) };
+    if (dto.endDate) where.createdAt = { lte: new Date(dto.endDate) };
+    if (dto.status) where.status = dto.status;
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.urgency) where.urgency = dto.urgency;
+    if (dto.staffId) where.staffId = dto.staffId;
+    if (dto.itItemId) where.itItemId = dto.itItemId;
+
+    const requisitions = await this.prisma.requisition.findMany({
+      where,
+      include: {
+        staff: { select: { name: true } },
+        department: { select: { name: true } },
+        itItem: { select: { brand: true, model: true } },
+        deptApprover: { select: { name: true } },
+        itdApprover: { select: { name: true } },
+        issuedBy: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const summary = {
+      total: requisitions.length,
+      byStatus: {
+        PENDING_DEPT_APPROVAL: requisitions.filter((r) => r.status === 'PENDING_DEPT_APPROVAL').length,
+        PENDING_ITD_APPROVAL: requisitions.filter((r) => r.status === 'PENDING_ITD_APPROVAL').length,
+        DEPT_APPROVED: requisitions.filter((r) => r.status === 'DEPT_APPROVED').length,
+        ITD_APPROVED: requisitions.filter((r) => r.status === 'ITD_APPROVED').length,
+        DEPT_DECLINED: requisitions.filter((r) => r.status === 'DEPT_DECLINED').length,
+        ITD_DECLINED: requisitions.filter((r) => r.status === 'ITD_DECLINED').length,
+        PROCESSED: requisitions.filter((r) => r.status === 'PROCESSED').length,
+      },
+      byUrgency: {
+        HIGH: requisitions.filter((r) => r.urgency === 'HIGH').length,
+        MEDIUM: requisitions.filter((r) => r.urgency === 'MEDIUM').length,
+        LOW: requisitions.filter((r) => r.urgency === 'LOW').length,
+      },
+      averageProcessingTimeHours: requisitions
+        .filter((r) => r.issuedAt || r.status === 'DEPT_DECLINED' || r.status === 'ITD_DECLINED')
+        .reduce((acc, r) => {
+          const endTime = r.issuedAt || r.updatedAt;
+          const timeDiff = (endTime.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60); // Hours
+          return acc + timeDiff;
+        }, 0) / (requisitions.filter((r) => r.issuedAt || r.status === 'DEPT_DECLINED' || r.status === 'ITD_DECLINED').length || 1),
+    };
+
+    const formattedRequisitions = requisitions.map((r) => ({
+      requisitionId: r.requisitionID,
+      staffName: r.staff.name,
+      itemDescription: r.itemDescription,
+      quantity: r.quantity,
+      urgency: r.urgency,
+      departmentName: r.department.name,
+      itItem: r.itItem ? `${r.itItem.brand} ${r.itItem.model}` : null,
+      status: r.status,
+      deptApproverName: r.deptApprover?.name || 'N/A',
+      itdApproverName: r.itdApprover?.name || 'N/A',
+      issuedByName: r.issuedBy?.name || 'N/A',
+      createdAt: r.createdAt.toISOString(),
+      issuedAt: r.issuedAt?.toISOString(),
+      purpose: r.purpose,
+    }));
+
+    return { summary, requisitions: formattedRequisitions };
+}
+
+async getRequisitionApprovalDelays(dto: RequisitionApprovalDelaysDto) {
+    const thresholdDays = parseInt(dto.thresholdDays || '5', 10);
+    if (isNaN(thresholdDays) || thresholdDays < 1) {
+      throw new BadRequestException('Invalid threshold days');
+    }
+
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
+
+    const where: Prisma.RequisitionWhereInput = {
+      deletedAt: null,
+      status: { in: ['PENDING_DEPT_APPROVAL', 'PENDING_ITD_APPROVAL'] },
+      createdAt: { lte: thresholdDate },
+    };
+
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.approverId) {
+      where.OR = [
+        { deptApproverId: dto.approverId },
+        { itdApproverId: dto.approverId },
+      ];
+    }
+
+    const requisitions = await this.prisma.requisition.findMany({
+      where,
+      include: {
+        staff: { select: { name: true } },
+        department: { select: { name: true } },
+        itItem: { select: { brand: true, model: true } },
+        deptApprover: { select: { name: true } },
+        itdApprover: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const formattedRequisitions = requisitions.map((r) => ({
+      requisitionId: r.requisitionID,
+      staffName: r.staff.name,
+      itemDescription: r.itemDescription,
+      quantity: r.quantity,
+      urgency: r.urgency,
+      departmentName: r.department.name,
+      itItem: r.itItem ? `${r.itItem.brand} ${r.itItem.model}` : null,
+      status: r.status,
+      deptApproverName: r.deptApprover?.name || 'N/A',
+      itdApproverName: r.itdApprover?.name || 'N/A',
+      createdAt: r.createdAt.toISOString(),
+      daysPending: Math.floor(
+        (new Date().getTime() - r.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    }));
+
+    return {
+      thresholdDays,
+      totalDelayed: requisitions.length,
+      requisitions: formattedRequisitions,
+    };
+}
+
+async getRequisitionFulfillmentReport(dto: RequisitionReportDto) {
+    const where: Prisma.RequisitionWhereInput = {
+      deletedAt: null,
+      status: { in: ['DEPT_APPROVED', 'ITD_APPROVED', 'PROCESSED'] },
+    };
+
+    if (dto.startDate) where.createdAt = { gte: new Date(dto.startDate) };
+    if (dto.endDate) where.createdAt = { lte: new Date(dto.endDate) };
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.itItemId) where.itItemId = dto.itItemId;
+
+    const requisitions = await this.prisma.requisition.findMany({
+      where,
+      include: {
+        staff: { select: { name: true } },
+        department: { select: { name: true } },
+        itItem: { select: { brand: true, model: true } },
+        issuedBy: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const summary = {
+      total: requisitions.length,
+      processed: requisitions.filter((r) => r.status === 'PROCESSED').length,
+      pendingProcessing: requisitions.filter((r) => r.status === 'DEPT_APPROVED' || r.status === 'ITD_APPROVED').length,
+      averageFulfillmentTimeHours: requisitions
+        .filter((r) => r.status === 'PROCESSED' && r.issuedAt)
+        .reduce((acc, r) => {
+          const timeDiff = (r.issuedAt.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60); // Hours
+          return acc + timeDiff;
+        }, 0) / (requisitions.filter((r) => r.status === 'PROCESSED' && r.issuedAt).length || 1),
+    };
+
+    const formattedRequisitions = requisitions.map((r) => ({
+      requisitionId: r.requisitionID,
+      staffName: r.staff.name,
+      itemDescription: r.itemDescription,
+      quantity: r.quantity,
+      departmentName: r.department.name,
+      itItem: r.itItem ? `${r.itItem.brand} ${r.itItem.model}` : null,
+      status: r.status,
+      issuedByName: r.issuedBy?.name || 'N/A',
+      createdAt: r.createdAt.toISOString(),
+      issuedAt: r.issuedAt?.toISOString(),
+      fulfillmentTimeHours: r.issuedAt
+        ? (r.issuedAt.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60)
+        : null,
+    }));
+
+    return { summary, requisitions: formattedRequisitions };
+}
+
+async getHighUrgencyRequisitions(dto: RequisitionReportDto) {
+    const where: Prisma.RequisitionWhereInput = {
+      deletedAt: null,
+      urgency: 'HIGH',
+    };
+
+    if (dto.startDate) where.createdAt = { gte: new Date(dto.startDate) };
+    if (dto.endDate) where.createdAt = { lte: new Date(dto.endDate) };
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.status) where.status = dto.status;
+
+    const requisitions = await this.prisma.requisition.findMany({
+      where,
+      include: {
+        staff: { select: { name: true } },
+        department: { select: { name: true } },
+        itItem: { select: { brand: true, model: true } },
+        deptApprover: { select: { name: true } },
+        itdApprover: { select: { name: true } },
+        issuedBy: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const summary = {
+      total: requisitions.length,
+      byStatus: {
+        PENDING_DEPT_APPROVAL: requisitions.filter((r) => r.status === 'PENDING_DEPT_APPROVAL').length,
+        PENDING_ITD_APPROVAL: requisitions.filter((r) => r.status === 'PENDING_ITD_APPROVAL').length,
+        DEPT_APPROVED: requisitions.filter((r) => r.status === 'DEPT_APPROVED').length,
+        ITD_APPROVED: requisitions.filter((r) => r.status === 'ITD_APPROVED').length,
+        DEPT_DECLINED: requisitions.filter((r) => r.status === 'DEPT_DECLINED').length,
+        ITD_DECLINED: requisitions.filter((r) => r.status === 'ITD_DECLINED').length,
+        PROCESSED: requisitions.filter((r) => r.status === 'PROCESSED').length,
+      },
+    };
+
+    const formattedRequisitions = requisitions.map((r) => ({
+      requisitionId: r.requisitionID,
+      staffName: r.staff.name,
+      itemDescription: r.itemDescription,
+      quantity: r.quantity,
+      departmentName: r.department.name,
+      itItem: r.itItem ? `${r.itItem.brand} ${r.itItem.model}` : null,
+      status: r.status,
+      deptApproverName: r.deptApprover?.name || 'N/A',
+      itdApproverName: r.itdApprover?.name || 'N/A',
+      issuedByName: r.issuedBy?.name || 'N/A',
+      createdAt: r.createdAt.toISOString(),
+      issuedAt: r.issuedAt?.toISOString(),
+      daysSinceCreated: Math.floor(
+        (new Date().getTime() - r.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    }));
+
+    return { summary, requisitions: formattedRequisitions };
+}
+
+async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
+    const where: Prisma.RequisitionWhereInput = {
+      deletedAt: null,
+      status: { in: ['DEPT_DECLINED', 'ITD_DECLINED'] },
+    };
+
+    if (dto.startDate) where.createdAt = { gte: new Date(dto.startDate) };
+    if (dto.endDate) where.createdAt = { lte: new Date(dto.endDate) };
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.staffId) where.staffId = dto.staffId;
+
+    const requisitions = await this.prisma.requisition.findMany({
+      where,
+      include: {
+        staff: { select: { name: true } },
+        department: { select: { name: true } },
+        itItem: { select: { brand: true, model: true } },
+        deptApprover: { select: { name: true } },
+        itdApprover: { select: { name: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const declineReasons = requisitions.reduce((acc, r) => {
+      const reason = r.declineReason || 'No reason provided';
+      acc[reason] = (acc[reason] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const formattedRequisitions = requisitions.map((r) => ({
+      requisitionId: r.requisitionID,
+      staffName: r.staff.name,
+      itemDescription: r.itemDescription,
+      quantity: r.quantity,
+      departmentName: r.department.name,
+      itItem: r.itItem ? `${r.itItem.brand} ${r.itItem.model}` : null,
+      declineReason: r.declineReason,
+      deptApproverName: r.deptApprover?.name || 'N/A',
+      itdApproverName: r.itdApprover?.name || 'N/A',
+      createdAt: r.createdAt.toISOString(),
+      declinedAt: r.updatedAt.toISOString(),
+    }));
+
+    return {
+      summary: {
+        totalDeclined: requisitions.length,
+        declineReasons,
+      },
+      requisitions: formattedRequisitions,
+    };
   }
 }
