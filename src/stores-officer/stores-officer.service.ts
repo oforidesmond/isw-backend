@@ -28,6 +28,20 @@ export class StoresOfficerService {
     // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
+  async getApprovedRequisitions() {
+    return this.prisma.requisition.findMany({
+      where: {
+        status: 'ITD_APPROVED',
+        deletedAt: null,
+      },
+      include: {
+        staff: { select: { id: true, name: true, email: true } },
+        itItem: { select: { id: true, brand: true, model: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+  
   async issueRequisition(
     requisitionId: string,
     storesOfficerId: string,
