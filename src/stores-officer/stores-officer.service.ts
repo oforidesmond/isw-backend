@@ -49,7 +49,6 @@ export class StoresOfficerService {
       itItemId: string;
       quantity: number;
       stockBatchId: string;
-      deviceDetails?: Record<string, any>;
       disbursementNote?: string;
       remarks?: string; 
     },
@@ -65,45 +64,48 @@ export class StoresOfficerService {
         },
       });
       if (!requisition) throw new NotFoundException(`Requisition ${requisitionId} not found`);
-      if (requisition.deletedAt) throw new BadRequestException(`Requisition ${requisitionId} is deleted`);
-      if (requisition.status !== 'ITD_APPROVED') throw new BadRequestException(`Requisition ${requisitionId} not fully approved`);
+    if (requisition.deletedAt) throw new BadRequestException(`Requisition ${requisitionId} is deleted`);
+    if (requisition.status !== 'ITD_APPROVED') throw new BadRequestException(`Requisition ${requisitionId} not fully approved`);
 
-      const itItem = await tx.iTItem.findUnique({ where: { id: data.itItemId } });
-      if (!itItem) throw new BadRequestException(`ITItem ${data.itItemId} not found`);
+    const itItem = await tx.iTItem.findUnique({ 
+      where: { id: data.itItemId },
+      select: { id: true, itemClass: true, deviceType: true, defaultWarranty: true, specifications: true, brand: true, model: true } 
+    });
+    if (!itItem) throw new BadRequestException(`ITItem ${data.itItemId} not found`);
 
-      const stock = await tx.stock.findUnique({ where: { itItemId: data.itItemId } });
-      if (!stock || stock.quantityInStock < data.quantity) {
-        throw new BadRequestException(`Insufficient stock for item ${data.itItemId}`);
-      }
+    const stock = await tx.stock.findUnique({ where: { itItemId: data.itItemId } });
+    if (!stock || stock.quantityInStock < data.quantity) {
+      throw new BadRequestException(`Insufficient stock for item ${data.itItemId}`);
+    }
 
-      const stockBatch = await tx.stockBatch.findUnique({ where: { id: data.stockBatchId } });
-      if (!stockBatch || stockBatch.quantity < data.quantity || stockBatch.deletedAt) {
-        throw new BadRequestException(`Invalid, insufficient, or deleted stock batch ${data.stockBatchId}`);
-      }
+    const stockBatch = await tx.stockBatch.findUnique({ where: { id: data.stockBatchId } });
+    if (!stockBatch || stockBatch.quantity < data.quantity || stockBatch.deletedAt) {
+      throw new BadRequestException(`Invalid, insufficient, or deleted stock batch ${data.stockBatchId}`);
+    }
 
-      const storesOfficer = await tx.user.findUnique({ where: { id: storesOfficerId }, select: { email: true, name: true } });
-      if (!storesOfficer) throw new NotFoundException(`Stores officer ${storesOfficerId} not found`);
+    const storesOfficer = await tx.user.findUnique({ where: { id: storesOfficerId }, select: { email: true, name: true } });
+    if (!storesOfficer) throw new NotFoundException(`Stores officer ${storesOfficerId} not found`);
 
-      const oldState: Prisma.JsonObject = { status: requisition.status };
+    const oldState: Prisma.JsonObject = { status: requisition.status };
 
-      const updatedRequisition = await tx.requisition.update({
-        where: { id: requisitionId },
-        data: {
-          status: 'PROCESSED',
-          issuedById: storesOfficerId,
-          issuedAt: new Date(),
-          itItemId: data.itItemId,
-        },
-      });
+    const updatedRequisition = await tx.requisition.update({
+      where: { id: requisitionId },
+      data: {
+        status: 'PROCESSED',
+        issuedById: storesOfficerId,
+        issuedAt: new Date(),
+        itItemId: data.itItemId,
+      },
+    });
 
-      await tx.stock.update({
-        where: { id: stock.id },
-        data: { quantityInStock: { decrement: data.quantity } },
-      });
-      await tx.stockBatch.update({
-        where: { id: data.stockBatchId },
-        data: { quantity: { decrement: data.quantity } },
-      });
+    await tx.stock.update({
+      where: { id: stock.id },
+      data: { quantityInStock: { decrement: data.quantity } },
+    });
+    await tx.stockBatch.update({
+      where: { id: data.stockBatchId },
+      data: { quantity: { decrement: data.quantity } },
+    });
 
       const stockIssued = await tx.stockIssued.create({
         data: {
@@ -118,7 +120,7 @@ export class StoresOfficerService {
           remarks: data.remarks,
         },
       });
-
+  
       let inventoryId: string | undefined;
       if (itItem.itemClass === 'FIXED_ASSET') {
         const stockReceived = await tx.stockReceived.findUnique({ where: { id: stockBatch.stockReceivedId } });
@@ -137,23 +139,25 @@ export class StoresOfficerService {
           },
         });
         inventoryId = inventory.id;
-
-        if (data.deviceDetails) {
+  
+        // Use ITItem.specifications
+        const deviceDetails = itItem.specifications as Record<string, any> | null;
+        if (deviceDetails && Object.keys(deviceDetails).length > 0) {
           switch (itItem.deviceType) {
             case 'LAPTOP':
-              await tx.laptopDetails.create({ data: { inventoryId, ...data.deviceDetails } });
+              await tx.laptopDetails.create({ data: { inventoryId, ...deviceDetails } });
               break;
             case 'DESKTOP':
-              await tx.desktopDetails.create({ data: { inventoryId, ...data.deviceDetails } });
+              await tx.desktopDetails.create({ data: { inventoryId, ...deviceDetails } });
               break;
             case 'PRINTER':
-              await tx.printerDetails.create({ data: { inventoryId, ...data.deviceDetails } });
+              await tx.printerDetails.create({ data: { inventoryId, ...deviceDetails } });
               break;
             case 'UPS':
-              await tx.uPSDetails.create({ data: { inventoryId, ...data.deviceDetails } });
+              await tx.uPSDetails.create({ data: { inventoryId, ...deviceDetails } });
               break;
             case 'OTHER':
-              await tx.otherDetails.create({ data: { inventoryId, ...data.deviceDetails } });
+              await tx.otherDetails.create({ data: { inventoryId, ...deviceDetails } });
               break;
           }
         }
@@ -239,8 +243,8 @@ export class StoresOfficerService {
     });
   }
 
-   // fetch available stock batches
-   async getAvailableStockBatches(itItemId?: string) {
+  // fetch available stock batches
+  async getAvailableStockBatches(itItemId?: string) {
     return this.prisma.stockBatch.findMany({
       where: {
         deletedAt: null,
@@ -264,25 +268,26 @@ export class StoresOfficerService {
     });
   }
 
-  // fetch available IT items
-  async getAvailableITItems() {
-    return this.prisma.iTItem.findMany({
-      where: {
-        deletedAt: null,
-        stock: { quantityInStock: { gt: 0 } },
-      },
-      select: {
-        id: true,
-        itemID: true,
-        deviceType: true,
-        itemClass: true,
-        brand: true,
-        model: true,
-        stock: { select: { quantityInStock: true } },
-      },
-      orderBy: { brand: 'asc' },
-    });
-  }
+ // fetch available IT items
+ async getAvailableITItems() {
+  return this.prisma.iTItem.findMany({
+    where: {
+      deletedAt: null,
+      stock: { quantityInStock: { gt: 0 } },
+    },
+    select: {
+      id: true,
+      itemID: true,
+      deviceType: true,
+      itemClass: true,
+      brand: true,
+      model: true,
+      specifications: true,
+      stock: { select: { quantityInStock: true } },
+    },
+    orderBy: { brand: 'asc' },
+  });
+}
 
   // Create Stock Received
   async createStockReceived(

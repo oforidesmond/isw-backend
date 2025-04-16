@@ -18,23 +18,22 @@ export class StoresOfficerController {
   }
   
 // Issue Requisition
-  @Patch('req/:reqId/issue')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
-  async issueRequisition(
-    @Param('reqId') requisitionId: string,
-    @Body() data: {
-      itItemId: string;
-      quantity: number;
-      stockBatchId: string;
-      deviceDetails?: Record<string, any>;
-      disbursementNote?: string;
-      remarks?: string;
-    },
-    @Request() req,
-  ) {
-    return this.storesOfficerService.issueRequisition(requisitionId, req.user.userId, data, req.ip, req.headers['user-agent']);
-  }
+@Patch('req/:reqId/issue')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('stores_officer')
+async issueRequisition(
+  @Param('reqId') requisitionId: string,
+  @Body() data: {
+    itItemId: string;
+    quantity: number;
+    stockBatchId: string;
+    disbursementNote?: string;
+    remarks?: string;
+  },
+  @Request() req,
+) {
+  return this.storesOfficerService.issueRequisition(requisitionId, req.user.userId, data, req.ip, req.headers['user-agent']);
+}
 
   //Get stock batches
   @Get('stock-batches')
