@@ -27,7 +27,6 @@ export class StoresOfficerController {
       itItemId: string;
       quantity: number;
       stockBatchId: string;
-      deviceDetails?: Record<string, any>;
       disbursementNote?: string;
       remarks?: string;
     },
