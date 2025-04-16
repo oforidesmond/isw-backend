@@ -178,6 +178,14 @@ async updateRolePermissions(
   async createSupplier(@Body() dto: CreateSupplierDto, @Request() req) {
     return this.SuppliersService.createSupplier(req.user.userId, dto, req.ip, req.headers['user-agent']);
   }
+
+   // Get Suppliers
+   @Get('suppliers')
+   @UseGuards(JwtAuthGuard, RolesGuard)
+   @Roles('admin')
+   async getSuppliers() {
+     return this.SuppliersService.getSuppliers();
+   }
 }
 
   
