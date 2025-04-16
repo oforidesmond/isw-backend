@@ -71,4 +71,26 @@ export class SuppliersService {
       return { message: `Supplier ${supplier.supplierID} created`, supplierId: supplier.id };
     });
   }
+
+   //Get all suppliers
+   async getSuppliers() {
+    return this.prisma.supplier.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        supplierID: true,
+        name: true,
+        contactDetails: true,
+        lpoReference: true,
+        lpoDate: true,
+        voucherNumber: true,
+        remarks: true
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
 }
