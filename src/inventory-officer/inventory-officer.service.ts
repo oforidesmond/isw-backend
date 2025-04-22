@@ -24,23 +24,55 @@ export class InventoryOfficerService {
     // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
-  // Get All Inventory Items
-  async getAllInventory() {
-    return this.prisma.inventory.findMany({
-      where: { deletedAt: null },
-      include: {
-        itItem: { select: { brand: true, model: true, deviceType: true } },
-        user: { select: { name: true } },
-        department: { select: { name: true } },
-        laptopDetails: true,
-        desktopDetails: true,
-        printerDetails: true,
-        upsDetails: true,
-        otherDetails: true,
+ // Get All Inventory Items
+ async getAllInventory() {
+  return this.prisma.inventory.findMany({
+    where: { deletedAt: null },
+    include: {
+      itItem: { select: { brand: true, model: true, deviceType: true } },
+      user: { select: { name: true } },
+      department: { select: { name: true } },
+      unit: { select: { name: true } },
+      laptopDetails: true,
+      desktopDetails: true,
+      printerDetails: true,
+      upsDetails: true,
+      otherDetails: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+async getUsers() {
+  return this.prisma.user.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      departmentId: true,
+      department: {
+        select: {
+          id: true,
+          name: true,
+        },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+      unitId: true,
+      unit: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      name: 'asc',
+    },
+  });
+}
 
   // Update Inventory Main Fields (eg., userId, departmentId)
   async updateInventory(

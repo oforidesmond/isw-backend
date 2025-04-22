@@ -289,6 +289,34 @@ export class StoresOfficerService {
   });
 }
 
+async getAllStockReceived(page: number, limit: number) {
+  const skip = (page - 1) * limit;
+
+  const [stockReceived, total] = await Promise.all([
+    this.prisma.stockReceived.findMany({
+      skip,
+      take: limit,
+      orderBy: { dateReceived: 'desc' },
+      include: {
+        itItem: { select: { brand: true, model: true } },
+        supplier: { select: { name: true } },
+        receivedBy: { select: { name: true } },
+      },
+    }),
+    this.prisma.stockReceived.count(),
+  ]);
+
+  return {
+    data: stockReceived,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
   // Create Stock Received
   async createStockReceived(
     storesOfficerId: string,

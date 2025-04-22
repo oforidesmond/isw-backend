@@ -16,6 +16,13 @@ export class InventoryOfficerController {
     return this.inventoryOfficerService.getAllInventory();
   }
 
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('inventory_officer')
+  async getUsers() {
+    return this.inventoryOfficerService.getUsers();
+  }
+  
   @Patch('update/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('inventory_officer')
