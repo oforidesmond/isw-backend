@@ -32,6 +32,7 @@ export class InventoryOfficerService {
         itItem: { select: { brand: true, model: true, deviceType: true } },
         user: { select: { name: true } },
         department: { select: { name: true } },
+        unit: { select: { name: true } },
         laptopDetails: true,
         desktopDetails: true,
         printerDetails: true,
@@ -39,6 +40,37 @@ export class InventoryOfficerService {
         otherDetails: true,
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getUsers() {
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        unitId: true,
+        unit: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
     });
   }
 

@@ -17,6 +17,20 @@ export class StoresOfficerController {
     return this.storesOfficerService.getApprovedRequisitions();
   }
 
+  @Get('stock-received')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('stores_officer')
+  // @ApiOperation({ summary: 'Get all stock received records' })
+  // @ApiResponse({ status: 200, description: 'List of stock received records' })
+  // @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination', example: 1 })
+  // @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of records per page', example: 10 })
+  async getAllStockReceived(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.storesOfficerService.getAllStockReceived(page, limit);
+  }
+
 // Issue Requisition
   @Patch('req/:reqId/issue')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -52,7 +66,7 @@ export class StoresOfficerController {
   }
 
   // Create Stock Received Entry
-  @Post('stock-received')
+  @Post('stock-received/create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer')
   async createStockReceived(@Body() dto: CreateStockReceivedDto, @Request() req) {
