@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, ValidateIf, Validate } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, ValidateIf, Validate, IsIn } from 'class-validator';
 import { InventoryStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
 
@@ -109,14 +109,16 @@ export class UpdateDeviceDetailsDto {
   @ValidateIf(o => o.deviceType === 'LAPTOP')
   @IsBoolean()
   @IsOptional()
+  @IsIn(['true', 'false', '', null, true, false]) 
   @Transform(({ value }) => value === 'true' || value === true)
-  laptopEndpointSecurity?: boolean;
+  laptopEndpointSecurity?: boolean | string | null;
 
   @ValidateIf(o => o.deviceType === 'LAPTOP')
   @IsBoolean()
   @IsOptional()
+  @IsIn(['true', 'false', '', null, true, false]) 
   @Transform(({ value }) => value === 'true' || value === true)
-  laptopSpiceworksMonitoring?: boolean;
+  laptopSpiceworksMonitoring?: boolean | string | null;
 
   // Desktop-specific fields
   @ValidateIf(o => o.deviceType === 'DESKTOP')
@@ -182,14 +184,16 @@ export class UpdateDeviceDetailsDto {
   @ValidateIf(o => o.deviceType === 'DESKTOP')
   @IsBoolean()
   @IsOptional()
+  @IsIn(['true', 'false', '', null, true, false]) 
   @Transform(({ value }) => value === 'true' || value === true)
-  desktopEndpointSecurity?: boolean;
+  desktopEndpointSecurity?: boolean | string | null;
 
   @ValidateIf(o => o.deviceType === 'DESKTOP')
   @IsBoolean()
   @IsOptional()
+  @IsIn(['true', 'false', '', null, true, false]) 
   @Transform(({ value }) => value === 'true' || value === true)
-  desktopSpiceworksMonitoring?: boolean;
+  desktopSpiceworksMonitoring?: boolean | string | null;
 
   // Printer-specific fields
   @ValidateIf(o => o.deviceType === 'PRINTER')

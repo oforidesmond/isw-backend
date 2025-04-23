@@ -366,27 +366,39 @@ export class InventoryOfficerService {
               laptopModel: dto.laptopModel,
               laptopSerialNumber: dto.laptopSerialNumber,
               laptopMacAddress: dto.laptopMacAddress,
-              laptopProcessorType: dto.laptopProcessorType,
-              laptopMemorySize: dto.laptopMemorySize,
-              laptopStorageDriveType: dto.laptopStorageDriveType,
-              laptopStorageDriveSize: dto.laptopStorageDriveSize,
-              laptopOperatingSystem: dto.laptopOperatingSystem,
-              laptopEndpointSecurity: dto.laptopEndpointSecurity,
-              laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
-            },
+              laptopProcessorType: dto.laptopProcessorType || "",
+              laptopMemorySize: dto.laptopMemorySize || "",
+              laptopStorageDriveType: dto.laptopStorageDriveType || "",
+              laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
+              laptopOperatingSystem: dto.laptopOperatingSystem || "",
+              laptopEndpointSecurity:
+              dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
+                ? null
+                : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
+            laptopSpiceworksMonitoring:
+              dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
+                ? null
+                : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
+          },
             create: {
               inventoryId,
               laptopBrand: dto.laptopBrand,
               laptopModel: dto.laptopModel,
               laptopSerialNumber: dto.laptopSerialNumber,
               laptopMacAddress: dto.laptopMacAddress,
-              laptopProcessorType: dto.laptopProcessorType,
-              laptopMemorySize: dto.laptopMemorySize,
-              laptopStorageDriveType: dto.laptopStorageDriveType,
-              laptopStorageDriveSize: dto. laptopStorageDriveSize,
-              laptopOperatingSystem: dto.laptopOperatingSystem,
-              laptopEndpointSecurity: dto.laptopEndpointSecurity,
-              laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
+              laptopProcessorType: dto.laptopProcessorType || "",
+              laptopMemorySize: dto.laptopMemorySize || "",
+              laptopStorageDriveType: dto.laptopStorageDriveType || "",
+              laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
+              laptopOperatingSystem: dto.laptopOperatingSystem || "",
+              laptopEndpointSecurity:
+              dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
+                ? null
+                : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
+            laptopSpiceworksMonitoring:
+              dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
+                ? null
+                : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
             },
           });
           actionType = AuditActionType.LAPTOP_DETAILS_UPDATED;
@@ -418,14 +430,20 @@ export class InventoryOfficerService {
               desktopMonitorModel: dto.desktopMonitorModel,
               desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
               desktopMacAddress: dto.desktopMacAddress,
-              desktopProcessorType: dto.desktopProcessorType,
-              desktopMemorySize: dto.desktopMemorySize,
-              desktopStorageDriveType: dto.desktopStorageDriveType,
-              desktopStorageDriveSize: dto.desktopStorageDriveSize,
-              desktopOperatingSystem: dto.desktopOperatingSystem,
-              desktopEndpointSecurity: dto.desktopEndpointSecurity,
-              desktopSpiceworksMonitoring: dto.desktopSpiceworksMonitoring,
-            },
+              desktopProcessorType: dto.desktopProcessorType || "",
+              desktopMemorySize: dto.desktopMemorySize || "",
+              desktopStorageDriveType: dto.desktopStorageDriveType || "",
+              desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
+              desktopOperatingSystem: dto.desktopOperatingSystem || "",
+              desktopEndpointSecurity:
+          dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
+            ? null
+            : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
+            desktopSpiceworksMonitoring:
+          dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
+            ? null
+            : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
+      },
             create: {
               inventoryId,
               desktopBrand: dto.desktopBrand,
@@ -435,13 +453,19 @@ export class InventoryOfficerService {
               desktopMonitorModel: dto.desktopMonitorModel,
               desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
               desktopMacAddress: dto.desktopMacAddress,
-              desktopProcessorType: dto.desktopProcessorType,
-              desktopMemorySize: dto.desktopMemorySize,
-              desktopStorageDriveType: dto.desktopStorageDriveType,
-              desktopStorageDriveSize: dto.desktopStorageDriveSize,
-              desktopOperatingSystem: dto.desktopOperatingSystem,
-              desktopEndpointSecurity: dto.desktopEndpointSecurity,
-              desktopSpiceworksMonitoring: dto.desktopSpiceworksMonitoring,
+              desktopProcessorType: dto.desktopProcessorType || "",
+              desktopMemorySize: dto.desktopMemorySize || "",
+              desktopStorageDriveType: dto.desktopStorageDriveType || "",
+              desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
+              desktopOperatingSystem: dto.desktopOperatingSystem || "",
+              desktopEndpointSecurity:
+          dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
+            ? null
+            : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
+            desktopSpiceworksMonitoring:
+          dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
+            ? null
+            : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
             },
           });
           actionType = AuditActionType.DESKTOP_DETAILS_UPDATED;
