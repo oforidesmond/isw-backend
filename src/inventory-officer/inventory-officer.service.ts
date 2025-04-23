@@ -227,6 +227,7 @@ export class InventoryOfficerService {
     userAgent?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      // Fetch inventory details
       const inventory = await tx.inventory.findUnique({
         where: { id: inventoryId },
         include: { itItem: { select: { deviceType: true, itemClass: true } } },
@@ -239,11 +240,69 @@ export class InventoryOfficerService {
       if (inventory.itItem.deviceType !== dto.deviceType) {
         throw new BadRequestException(`Device type ${dto.deviceType} does not match inventory`);
       }
-
+  
       let actionType: AuditActionType;
       let entityType: string;
       let entityId: string;
-
+      let newState: any;
+  
+      // Define required and allowed fields for each device type
+      const requiredFields: { [key: string]: string[] } = {
+        LAPTOP: ['laptopBrand', 'laptopModel', 'laptopSerialNumber'],
+        DESKTOP: ['desktopBrand', 'desktopModel', 'desktopSerialNumber'],
+        PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber'],
+        UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
+        OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber'],
+      };
+  
+      const allowedFields: { [key: string]: string[] } = {
+        LAPTOP: [
+          'laptopBrand',
+          'laptopModel',
+          'laptopSerialNumber',
+          'laptopMacAddress',
+          'laptopProcessorType',
+          'laptopMemorySize',
+          'laptopStorageDriveType',
+          'laptopStorageDriveSize',
+          'laptopOperatingSystem',
+          'laptopEndpointSecurity',
+          'laptopSpiceworksMonitoring',
+        ],
+        DESKTOP: [
+          'desktopBrand',
+          'desktopModel',
+          'desktopSerialNumber',
+          'desktopMonitorBrand',
+          'desktopMonitorModel',
+          'desktopMonitorSerialNumber',
+          'desktopMacAddress',
+          'desktopProcessorType',
+          'desktopMemorySize',
+          'desktopStorageDriveType',
+          'desktopStorageDriveSize',
+          'desktopOperatingSystem',
+          'desktopEndpointSecurity',
+          'desktopSpiceworksMonitoring',
+        ],
+        PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber', 'printerMacAddress', 'printerTonerNumber'],
+        UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
+        OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber', 'otherMacAddress', 'deviceTypeOther'],
+      };
+  
+      // Check for required fields
+      const missingRequiredFields = requiredFields[dto.deviceType]?.filter(field => dto[field] === undefined || dto[field] === null);
+      if (missingRequiredFields?.length > 0) {
+        throw new BadRequestException(`Missing required fields for ${dto.deviceType}: ${missingRequiredFields.join(', ')}`);
+      }
+  
+      // Check for invalid fields
+      const providedFields = Object.keys(dto).filter(key => key !== 'deviceType' && dto[key] !== undefined);
+      const invalidFields = providedFields.filter(field => !allowedFields[dto.deviceType]?.includes(field));
+      if (invalidFields.length > 0) {
+        throw new BadRequestException(`Invalid fields for ${dto.deviceType}: ${invalidFields.join(', ')}`);
+      }
+  
       switch (dto.deviceType) {
         case 'LAPTOP':
           const laptop = await tx.laptopDetails.upsert({
@@ -270,7 +329,7 @@ export class InventoryOfficerService {
               laptopProcessorType: dto.laptopProcessorType,
               laptopMemorySize: dto.laptopMemorySize,
               laptopStorageDriveType: dto.laptopStorageDriveType,
-              laptopStorageDriveSize: dto.laptopStorageDriveSize,
+              laptopStorageDriveSize: dto. laptopStorageDriveSize,
               laptopOperatingSystem: dto.laptopOperatingSystem,
               laptopEndpointSecurity: dto.laptopEndpointSecurity,
               laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
@@ -279,7 +338,21 @@ export class InventoryOfficerService {
           actionType = AuditActionType.LAPTOP_DETAILS_UPDATED;
           entityType = 'LaptopDetails';
           entityId = laptop.id;
+          newState = {
+            laptopBrand: dto.laptopBrand,
+            laptopModel: dto.laptopModel,
+            laptopSerialNumber: dto.laptopSerialNumber,
+            laptopMacAddress: dto.laptopMacAddress,
+            laptopProcessorType: dto.laptopProcessorType,
+            laptopMemorySize: dto.laptopMemorySize,
+            laptopStorageDriveType: dto.laptopStorageDriveType,
+            laptopStorageDriveSize: dto.laptopStorageDriveSize,
+            laptopOperatingSystem: dto.laptopOperatingSystem,
+            laptopEndpointSecurity: dto.laptopEndpointSecurity,
+            laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
+          };
           break;
+  
         case 'DESKTOP':
           const desktop = await tx.desktopDetails.upsert({
             where: { inventoryId },
@@ -320,7 +393,24 @@ export class InventoryOfficerService {
           actionType = AuditActionType.DESKTOP_DETAILS_UPDATED;
           entityType = 'DesktopDetails';
           entityId = desktop.id;
+          newState = {
+            desktopBrand: dto.desktopBrand,
+            desktopModel: dto.desktopModel,
+            desktopSerialNumber: dto.desktopSerialNumber,
+            desktopMonitorBrand: dto.desktopMonitorBrand,
+            desktopMonitorModel: dto.desktopMonitorModel,
+            desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
+            desktopMacAddress: dto.desktopMacAddress,
+            desktopProcessorType: dto.desktopProcessorType,
+            desktopMemorySize: dto.desktopMemorySize,
+            desktopStorageDriveType: dto.desktopStorageDriveType,
+            desktopStorageDriveSize: dto.desktopStorageDriveSize,
+            desktopOperatingSystem: dto.desktopOperatingSystem,
+            desktopEndpointSecurity: dto.desktopEndpointSecurity,
+            desktopSpiceworksMonitoring: dto.desktopSpiceworksMonitoring,
+          };
           break;
+  
         case 'PRINTER':
           const printer = await tx.printerDetails.upsert({
             where: { inventoryId },
@@ -343,7 +433,15 @@ export class InventoryOfficerService {
           actionType = AuditActionType.PRINTER_DETAILS_UPDATED;
           entityType = 'PrinterDetails';
           entityId = printer.id;
+          newState = {
+            printerBrand: dto.printerBrand,
+            printerModel: dto.printerModel,
+            printerSerialNumber: dto.printerSerialNumber,
+            printerMacAddress: dto.printerMacAddress,
+            printerTonerNumber: dto.printerTonerNumber,
+          };
           break;
+  
         case 'UPS':
           const ups = await tx.uPSDetails.upsert({
             where: { inventoryId },
@@ -362,7 +460,13 @@ export class InventoryOfficerService {
           actionType = AuditActionType.UPS_DETAILS_UPDATED;
           entityType = 'UPSDetails';
           entityId = ups.id;
+          newState = {
+            upsBrand: dto.upsBrand,
+            upsModel: dto.upsModel,
+            upsSerialNumber: dto.upsSerialNumber,
+          };
           break;
+  
         case 'OTHER':
           const other = await tx.otherDetails.upsert({
             where: { inventoryId },
@@ -385,24 +489,32 @@ export class InventoryOfficerService {
           actionType = AuditActionType.OTHER_DETAILS_UPDATED;
           entityType = 'OtherDetails';
           entityId = other.id;
+          newState = {
+            otherBrand: dto.otherBrand,
+            otherModel: dto.otherModel,
+            otherSerialNumber: dto.otherSerialNumber,
+            otherMacAddress: dto.otherMacAddress,
+            deviceTypeOther: dto.deviceTypeOther,
+          };
           break;
+  
         default:
           throw new BadRequestException(`Invalid device type: ${dto.deviceType}`);
       }
-
+  
       const auditPayload: AuditPayload = {
         actionType,
         performedById: officerId,
         affectedUserId: inventory.userId,
         entityType,
         entityId,
-        oldState: null, 
-        newState: JSON.parse(JSON.stringify(dto)),
+        oldState: null, // Consider fetching old state if needed
+        newState,
         ipAddress,
         userAgent,
         details: { inventoryId },
       };
-
+  
       await this.auditService.logAction(auditPayload, tx);
       return { message: `Device details for inventory ${inventoryId} updated` };
     });
