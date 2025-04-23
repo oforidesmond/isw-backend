@@ -16,6 +16,13 @@ export class InventoryOfficerController {
     return this.inventoryOfficerService.getAllInventory();
   }
 
+  @Get('device-fields')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('inventory_officer')
+  async getDeviceFields() {
+    return this.inventoryOfficerService.getDeviceFields();
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('inventory_officer')

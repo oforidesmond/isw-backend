@@ -24,6 +24,60 @@ export class InventoryOfficerService {
     // @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
+  //Get device fields
+  async getDeviceFields() {
+    return {
+      LAPTOP: [
+        { name: 'laptopBrand', label: 'Brand', disabled: true },
+        { name: 'laptopModel', label: 'Model' },
+        { name: 'laptopSerialNumber', label: 'Serial Number' },
+        { name: 'laptopMacAddress', label: 'MAC Address' },
+        { name: 'laptopProcessorType', label: 'Processor' },
+        { name: 'laptopMemorySize', label: 'Memory Size' },
+        { name: 'laptopStorageDriveType', label: 'Drive Type' },
+        { name: 'laptopStorageDriveSize', label: 'Drive Size' },
+        { name: 'laptopOperatingSystem', label: 'OS' },
+        { name: 'laptopEndpointSecurity', label: 'Endpoint Security', type: 'switch' },
+        { name: 'laptopSpiceworksMonitoring', label: 'Spiceworks Monitoring', type: 'switch' },
+      ],
+      DESKTOP: [
+        { name: 'desktopBrand', label: 'Brand', disabled: true },
+        { name: 'desktopModel', label: 'Model' },
+        { name: 'desktopSerialNumber', label: 'Serial Number' },
+        { name: 'desktopMonitorBrand', label: 'Monitor Brand' },
+        { name: 'desktopMonitorModel', label: 'Monitor Model' },
+        { name: 'desktopMonitorSerialNumber', label: 'Monitor Serial Number' },
+        { name: 'desktopMacAddress', label: 'MAC Address' },
+        { name: 'desktopProcessorType', label: 'Processor' },
+        { name: 'desktopMemorySize', label: 'Memory Size' },
+        { name: 'desktopStorageDriveType', label: 'Drive Type' },
+        { name: 'desktopStorageDriveSize', label: 'Drive Size' },
+        { name: 'desktopOperatingSystem', label: 'OS' },
+        { name: 'desktopEndpointSecurity', label: 'Endpoint Security', type: 'switch' },
+        { name: 'desktopSpiceworksMonitoring', label: 'Spiceworks Monitoring', type: 'switch' },
+      ],
+      PRINTER: [
+        { name: 'printerBrand', label: 'Brand', disabled: true },
+        { name: 'printerModel', label: 'Model' },
+        { name: 'printerSerialNumber', label: 'Serial Number' },
+        { name: 'printerMacAddress', label: 'MAC Address' },
+        { name: 'printerTonerNumber', label: 'Toner Number' },
+      ],
+      UPS: [
+        { name: 'upsBrand', label: 'Brand', disabled: true },
+        { name: 'upsModel', label: 'Model' },
+        { name: 'upsSerialNumber', label: 'Serial Number' },
+      ],
+      OTHER: [
+        { name: 'otherBrand', label: 'Brand', disabled: true },
+        { name: 'otherModel', label: 'Model' },
+        { name: 'otherSerialNumber', label: 'Serial Number' },
+        { name: 'otherMacAddress', label: 'MAC Address' },
+        { name: 'deviceTypeOther', label: 'Device Type' },
+      ],
+    };
+  }
+
  // Get All Inventory Items
  async getAllInventory() {
   return this.prisma.inventory.findMany({
@@ -509,7 +563,7 @@ async getUsers() {
       entityType,
       entityId,
       oldState: null, // Consider fetching old state if needed
-      newState,
+      newState: JSON.parse(JSON.stringify(dto)),
       ipAddress,
       userAgent,
       details: { inventoryId },
