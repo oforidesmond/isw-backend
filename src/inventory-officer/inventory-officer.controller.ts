@@ -9,6 +9,13 @@ import { UpdateDeviceDetailsDto, UpdateInventoryDto } from './dto/update-invento
 export class InventoryOfficerController {
   constructor(private readonly inventoryOfficerService: InventoryOfficerService) {}
 
+  @Get('device-fields')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('inventory_officer')
+  async getDeviceFields() {
+    return this.inventoryOfficerService.getDeviceFields();
+  }
+  
   @Get('all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('inventory_officer')
