@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Ip } from '@nestjs/common';
+
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Ip, Query } from '@nestjs/common';
 // import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
@@ -14,6 +15,8 @@ import { AdminITItemsService } from './services/it-items.service';
 import { CreateITItemDto } from './dto/create-it-item.dto';
 import { CreateSupplierDto } from 'stores-officer/dto/create-stock-received.dto';
 import {SuppliersService} from './services/suppliers.service'
+import { CreateDepartmentDto } from './dto/create-department.dto';
+import { CreateUnitDto } from './dto/create-unit.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -179,13 +182,87 @@ async updateRolePermissions(
     return this.SuppliersService.createSupplier(req.user.userId, dto, req.ip, req.headers['user-agent']);
   }
 
-   // Get Suppliers
-   @Get('suppliers')
+  // Get Suppliers
+  @Get('suppliers')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getSuppliers() {
+    return this.SuppliersService.getSuppliers();
+  }
+
+   //Get IT items
+   @Get('it-items')
    @UseGuards(JwtAuthGuard, RolesGuard)
    @Roles('admin')
-   async getSuppliers() {
-     return this.SuppliersService.getSuppliers();
+   async getAvailableITItems() {
+     return this.adminITItemsService.getAvailableITItems();
+   }
+
+    // Get all departments
+  @Get('departments')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllDepartments(@Query('includeUnits') includeUnits?: string) {
+    return this.userManagementService.getAllDepartments(includeUnits === 'true');
+  }
+
+  // Create a new department
+  @Post('departments/new')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async createDepartment(@Body() createDepartmentDto: CreateDepartmentDto, @Request() req) {
+    return this.userManagementService.createDepartment(
+      createDepartmentDto,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  // Get all units
+  @Get('units')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllUnits() {
+    return this.userManagementService.getAllUnits();
+  }
+
+  // Create a new unit
+  @Post('units/new')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async createUnit(@Body() createUnitDto: CreateUnitDto, @Request() req) {
+    return this.userManagementService.createUnit(
+      createUnitDto,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  // Soft delete a department
+  @Delete('departments/:id/delete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async softDeleteDepartment(@Param('id') id: string, @Request() req) {
+    return this.userManagementService.softDeleteDepartment(
+      id,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+   // Soft delete a unit
+   @Delete('units/:id/delete')
+   @UseGuards(JwtAuthGuard, RolesGuard)
+   @Roles('admin')
+   async softDeleteUnit(@Param('id') id: string, @Request() req) {
+     return this.userManagementService.softDeleteUnit(
+       id,
+       req.user.userId,
+       req.ip,
+       req.headers['user-agent'],
+     );
    }
 }
-
-  

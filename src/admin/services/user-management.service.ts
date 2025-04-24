@@ -11,6 +11,8 @@ import { UpdateUserDto } from 'admin/dto/update-user.dto';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 // import { InjectQueue } from '@nestjs/bull';
 // import { Queue } from 'bull';
+import { CreateDepartmentDto } from 'admin/dto/create-department.dto';
+import { CreateUnitDto } from 'admin/dto/create-unit.dto';
 
 interface ExtendedAuditPayload extends AuditPayload {
   details: {
@@ -29,6 +31,279 @@ export class UserManagementService {
     private jwtService: JwtService,
     private auditService: AuditService,
   ) {}
+
+  // Get all active departments
+  async getAllDepartments(includeUnits: boolean = false) {
+    return this.prisma.department.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        createdAt: true,
+        updatedAt: true,
+        ...(includeUnits && {
+          units: {
+            select: {
+              id: true,
+              name: true,
+            },
+            where: {
+              deletedAt: null,
+            },
+          },
+        }),
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
+  // Create a new department
+  async createDepartment(
+    data: CreateDepartmentDto,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    // Check if department name already exists
+    const existingDepartment = await this.prisma.department.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existingDepartment) {
+      throw new BadRequestException('Department name already exists');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create the department
+      const department = await tx.department.create({
+        data: {
+          name: data.name,
+          location: data.location,
+        },
+      });
+
+      // Prepare audit log
+      const newState: Prisma.JsonObject = {
+        name: department.name,
+        location: department.location,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'DEPARTMENT_CREATED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Department',
+        entityId: department.id,
+        oldState: null,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { createdBy: adminId },
+      };
+
+      // Log the action
+      await this.auditService.logAction(auditPayload, tx);
+
+      return {
+        message: 'Department created successfully',
+        departmentId: department.id,
+      };
+    });
+  }
+
+  // Get all active units
+  async getAllUnits() {
+    return this.prisma.unit.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        name: 'asc', 
+      },
+    });
+  }
+
+  // Create a new unit
+  async createUnit(
+    data: CreateUnitDto,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+
+    const existingUnit = await this.prisma.unit.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existingUnit) {
+      throw new BadRequestException('Unit name already exists');
+    }
+
+    const department = await this.prisma.department.findUnique({
+      where: { id: data.departmentId },
+    });
+
+    if (!department) {
+      throw new NotFoundException(`Department with ID ${data.departmentId} not found`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const unit = await tx.unit.create({
+        data: {
+          name: data.name,
+          department: {
+            connect: { id: data.departmentId },
+          },
+        },
+      });
+      const newState: Prisma.JsonObject = {
+        name: unit.name,
+        departmentId: data.departmentId,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'UNIT_CREATED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Unit',
+        entityId: unit.id,
+        oldState: null,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { createdBy: adminId },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return {
+        message: 'Unit created successfully',
+        unitId: unit.id,
+      };
+    });
+  }
+
+   // Soft delete a department
+   async softDeleteDepartment(
+    departmentId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const department = await tx.department.findUnique({
+        where: { id: departmentId },
+      });
+
+      if (!department) {
+        throw new NotFoundException(`Department with ID ${departmentId} not found`);
+      }
+
+      if (department.deletedAt) {
+        throw new BadRequestException(`Department with ID ${departmentId} is already deleted`);
+      }
+
+      await tx.department.update({
+        where: { id: departmentId },
+        data: { deletedAt: new Date() },
+      });
+
+      await tx.unit.updateMany({
+        where: { departmentId: departmentId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+
+      const oldState: Prisma.JsonObject = {
+        name: department.name,
+        location: department.location,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'DEPARTMENT_DELETED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Department',
+        entityId: department.id,
+        oldState,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { softDelete: true },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return { message: `Department ${department.name} soft-deleted successfully` };
+    });
+  }
+
+  // Soft delete a unit
+  async softDeleteUnit(
+    unitId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const unit = await tx.unit.findUnique({
+        where: { id: unitId },
+        include: { department: { select: { id: true, name: true } } },
+      });
+
+      if (!unit) {
+        throw new NotFoundException(`Unit with ID ${unitId} not found`);
+      }
+
+      if (unit.deletedAt) {
+        throw new BadRequestException(`Unit with ID ${unitId} is already deleted`);
+      }
+
+      await tx.unit.update({
+        where: { id: unitId },
+        data: { deletedAt: new Date() },
+      });
+
+      const oldState: Prisma.JsonObject = {
+        name: unit.name,
+        departmentId: unit.departmentId,
+        departmentName: unit.department.name,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'UNIT_DELETED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Unit',
+        entityId: unit.id,
+        oldState,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { softDelete: true },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return { message: `Unit ${unit.name} soft-deleted successfully` };
+    });
+  }
 
   async createUser(data: CreateUserDto, adminId: string, ipAddress?: string, userAgent?: string) {
     const randomPassword = crypto.randomBytes(5).toString('hex');
