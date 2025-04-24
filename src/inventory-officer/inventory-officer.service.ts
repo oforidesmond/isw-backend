@@ -272,329 +272,260 @@ async getUsers() {
     });
   }
 
- //Update Inventory Device-Specific Details (eg., LaptopModel)
- async updateDeviceDetails(
-  inventoryId: string,
-  officerId: string,
-  dto: UpdateDeviceDetailsDto,
-  ipAddress?: string,
-  userAgent?: string,
-) {
-  return this.prisma.$transaction(async (tx) => {
-    // Fetch inventory details
-    const inventory = await tx.inventory.findUnique({
-      where: { id: inventoryId },
-      include: { itItem: { select: { deviceType: true, itemClass: true } } },
+  //Update Inventory Device-Specific Details (eg., LaptopModel)
+  async updateDeviceDetails(
+    inventoryId: string,
+    officerId: string,
+    dto: UpdateDeviceDetailsDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      // Fetch inventory details
+      const inventory = await tx.inventory.findUnique({
+        where: { id: inventoryId },
+        include: { itItem: { select: { deviceType: true, itemClass: true } } },
+      });
+      if (!inventory) throw new NotFoundException(`Inventory ${inventoryId} not found`);
+      if (inventory.deletedAt) throw new BadRequestException(`Inventory ${inventoryId} is deleted`);
+      if (inventory.itItem.itemClass !== 'FIXED_ASSET') {
+        throw new BadRequestException(`Inventory ${inventoryId} is not a fixed asset`);
+      }
+      if (inventory.itItem.deviceType !== dto.deviceType) {
+        throw new BadRequestException(`Device type ${dto.deviceType} does not match inventory`);
+      }
+  
+      let actionType: AuditActionType;
+      let entityType: string;
+      let entityId: string;
+      let newState: any;
+  
+      // Define required and allowed fields for each device type
+      const requiredFields: { [key: string]: string[] } = {
+        LAPTOP: ['laptopBrand', 'laptopModel', 'laptopSerialNumber'],
+        DESKTOP: ['desktopBrand', 'desktopModel', 'desktopSerialNumber'],
+        PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber'],
+        UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
+        OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber'],
+      };
+  
+      const allowedFields: { [key: string]: string[] } = {
+        LAPTOP: [
+          'laptopBrand',
+          'laptopModel',
+          'laptopSerialNumber',
+          'laptopMacAddress',
+          'laptopProcessorType',
+          'laptopMemorySize',
+          'laptopStorageDriveType',
+          'laptopStorageDriveSize',
+          'laptopOperatingSystem',
+          'laptopEndpointSecurity',
+          'laptopSpiceworksMonitoring',
+        ],
+        DESKTOP: [
+          'desktopBrand',
+          'desktopModel',
+          'desktopSerialNumber',
+          'desktopMonitorBrand',
+          'desktopMonitorModel',
+          'desktopMonitorSerialNumber',
+          'desktopMacAddress',
+          'desktopProcessorType',
+          'desktopMemorySize',
+          'desktopStorageDriveType',
+          'desktopStorageDriveSize',
+          'desktopOperatingSystem',
+          'desktopEndpointSecurity',
+          'desktopSpiceworksMonitoring',
+        ],
+        PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber', 'printerMacAddress', 'printerTonerNumber'],
+        UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
+        OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber', 'otherMacAddress', 'deviceTypeOther'],
+      };
+  
+      // Check for required fields
+      const missingRequiredFields = requiredFields[dto.deviceType]?.filter(field => dto[field] === undefined || dto[field] === null);
+      if (missingRequiredFields?.length > 0) {
+        throw new BadRequestException(`Missing required fields for ${dto.deviceType}: ${missingRequiredFields.join(', ')}`);
+      }
+  
+      // Check for invalid fields
+      const providedFields = Object.keys(dto).filter(key => key !== 'deviceType' && dto[key] !== undefined);
+      const invalidFields = providedFields.filter(field => !allowedFields[dto.deviceType]?.includes(field));
+      if (invalidFields.length > 0) {
+        throw new BadRequestException(`Invalid fields for ${dto.deviceType}: ${invalidFields.join(', ')}`);
+      }
+
+       // Helper function to build update and create data
+       const buildUpdateData = (fields: string[], dto: UpdateDeviceDetailsDto) => {
+        const updateData: any = {};
+        const createData: any = { inventoryId };
+
+        fields.forEach((field) => {
+          const value = dto[field];
+          if (value !== undefined && value !== null && value !== '') {
+            if (['laptopEndpointSecurity', 'laptopSpiceworksMonitoring', 'desktopEndpointSecurity', 'desktopSpiceworksMonitoring'].includes(field)) {
+              updateData[field] = value === 'true' || value === true ? true : value === 'false' || value === false ? false : null;
+              createData[field] = value === 'true' || value === true ? true : value === 'false' || value === false ? false : null;
+            } else {
+              updateData[field] = value;
+              createData[field] = value;
+            }
+          }
+        });
+
+        return { updateData, createData };
+      };
+  
+      switch (dto.deviceType) {
+        case 'LAPTOP':
+          const { updateData: laptopUpdate, createData: laptopCreate } = buildUpdateData(
+            allowedFields.LAPTOP,
+            dto,
+          );
+          const laptop = await tx.laptopDetails.upsert({
+            where: { inventoryId },
+            update: laptopUpdate,
+            create: {
+              ...laptopCreate,
+              laptopBrand: dto.laptopBrand || '',
+              laptopModel: dto.laptopModel || '',
+              laptopSerialNumber: dto.laptopSerialNumber || '',
+              laptopMacAddress: laptopCreate.laptopMacAddress || '',
+              laptopProcessorType: laptopCreate.laptopProcessorType || '',
+              laptopMemorySize: laptopCreate.laptopMemorySize || '',
+              laptopStorageDriveType: laptopCreate.laptopStorageDriveType || '',
+              laptopStorageDriveSize: laptopCreate.laptopStorageDriveSize || '',
+              laptopOperatingSystem: laptopCreate.laptopOperatingSystem || '',
+              laptopEndpointSecurity: laptopCreate.laptopEndpointSecurity ?? null,
+              laptopSpiceworksMonitoring: laptopCreate.laptopSpiceworksMonitoring ?? null,
+            },
+          });
+          actionType = AuditActionType.LAPTOP_DETAILS_UPDATED;
+          entityType = 'LaptopDetails';
+          entityId = laptop.inventoryId; 
+          newState = { ...laptopUpdate };
+          break;
+
+        case 'DESKTOP':
+          const { updateData: desktopUpdate, createData: desktopCreate } = buildUpdateData(
+            allowedFields.DESKTOP,
+            dto,
+          );
+          const desktop = await tx.desktopDetails.upsert({
+            where: { inventoryId },
+            update: desktopUpdate,
+            create: {
+              ...desktopCreate,
+              desktopBrand: dto.desktopBrand || '',
+              desktopModel: dto.desktopModel || '',
+              desktopSerialNumber: dto.desktopSerialNumber || '',
+              desktopMonitorBrand: desktopCreate.desktopMonitorBrand || '',
+              desktopMonitorModel: desktopCreate.desktopMonitorModel || '',
+              desktopMonitorSerialNumber: desktopCreate.desktopMonitorSerialNumber || '',
+              desktopMacAddress: desktopCreate.desktopMacAddress || '',
+              desktopProcessorType: desktopCreate.desktopProcessorType || '',
+              desktopMemorySize: desktopCreate.desktopMemorySize || '',
+              desktopStorageDriveType: desktopCreate.desktopStorageDriveType || '',
+              desktopStorageDriveSize: desktopCreate.desktopStorageDriveSize || '',
+              desktopOperatingSystem: desktopCreate.desktopOperatingSystem || '',
+              desktopEndpointSecurity: desktopCreate.desktopEndpointSecurity ?? null,
+              desktopSpiceworksMonitoring: desktopCreate.desktopSpiceworksMonitoring ?? null,
+            },
+          });
+          actionType = AuditActionType.DESKTOP_DETAILS_UPDATED;
+          entityType = 'DesktopDetails';
+          entityId = desktop.inventoryId;
+          newState = { ...desktopUpdate };
+          break;
+
+        case 'PRINTER':
+          const { updateData: printerUpdate, createData: printerCreate } = buildUpdateData(
+            allowedFields.PRINTER,
+            dto,
+          );
+          const printer = await tx.printerDetails.upsert({
+            where: { inventoryId },
+            update: printerUpdate,
+            create: {
+              ...printerCreate,
+              printerBrand: dto.printerBrand || '',
+              printerModel: dto.printerModel || '',
+              printerSerialNumber: dto.printerSerialNumber || '',
+              printerMacAddress: printerCreate.printerMacAddress || '',
+              printerTonerNumber: printerCreate.printerTonerNumber || '',
+            },
+          });
+          actionType = AuditActionType.PRINTER_DETAILS_UPDATED;
+          entityType = 'PrinterDetails';
+          entityId = printer.inventoryId;
+          newState = { ...printerUpdate };
+          break;
+
+        case 'UPS':
+          const { updateData: upsUpdate, createData: upsCreate } = buildUpdateData(
+            allowedFields.UPS,
+            dto,
+          );
+          const ups = await tx.uPSDetails.upsert({
+            where: { inventoryId },
+            update: upsUpdate,
+            create: {
+              ...upsCreate,
+              upsBrand: dto.upsBrand || '',
+              upsModel: dto.upsModel || '',
+              upsSerialNumber: dto.upsSerialNumber || '',
+            },
+          });
+          actionType = AuditActionType.UPS_DETAILS_UPDATED;
+          entityType = 'UPSDetails';
+          entityId = ups.inventoryId;
+          newState = { ...upsUpdate };
+          break;
+
+        case 'OTHER':
+          const { updateData: otherUpdate, createData: otherCreate } = buildUpdateData(
+            allowedFields.OTHER,
+            dto,
+          );
+          const other = await tx.otherDetails.upsert({
+            where: { inventoryId },
+            update: otherUpdate,
+            create: {
+              ...otherCreate,
+              otherBrand: dto.otherBrand || '',
+              otherModel: dto.otherModel || '',
+              otherSerialNumber: dto.otherSerialNumber || '',
+              otherMacAddress: otherCreate.otherMacAddress || '',
+              deviceTypeOther: otherCreate.deviceTypeOther || '',
+            },
+          });
+          actionType = AuditActionType.OTHER_DETAILS_UPDATED;
+          entityType = 'OtherDetails';
+          entityId = other.inventoryId;
+          newState = { ...otherUpdate };
+          break;
+
+        default:
+          throw new BadRequestException(`Invalid device type: ${dto.deviceType}`);
+      }
+
+      const auditPayload: AuditPayload = {
+        actionType,
+        performedById: officerId,
+        affectedUserId: inventory.userId,
+        entityType,
+        entityId,
+        oldState: null,
+        newState,
+        ipAddress,
+        userAgent,
+        details: { inventoryId },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+      return { message: `Device details for inventory ${inventoryId} updated` };
     });
-    if (!inventory) throw new NotFoundException(`Inventory ${inventoryId} not found`);
-    if (inventory.deletedAt) throw new BadRequestException(`Inventory ${inventoryId} is deleted`);
-    if (inventory.itItem.itemClass !== 'FIXED_ASSET') {
-      throw new BadRequestException(`Inventory ${inventoryId} is not a fixed asset`);
-    }
-    if (inventory.itItem.deviceType !== dto.deviceType) {
-      throw new BadRequestException(`Device type ${dto.deviceType} does not match inventory`);
-    }
-
-    let actionType: AuditActionType;
-    let entityType: string;
-    let entityId: string;
-    let newState: any;
-
-    // Define required and allowed fields for each device type
-    const requiredFields: { [key: string]: string[] } = {
-      LAPTOP: ['laptopBrand', 'laptopModel', 'laptopSerialNumber'],
-      DESKTOP: ['desktopBrand', 'desktopModel', 'desktopSerialNumber'],
-      PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber'],
-      UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
-      OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber'],
-    };
-
-    const allowedFields: { [key: string]: string[] } = {
-      LAPTOP: [
-        'laptopBrand',
-        'laptopModel',
-        'laptopSerialNumber',
-        'laptopMacAddress',
-        'laptopProcessorType',
-        'laptopMemorySize',
-        'laptopStorageDriveType',
-        'laptopStorageDriveSize',
-        'laptopOperatingSystem',
-        'laptopEndpointSecurity',
-        'laptopSpiceworksMonitoring',
-      ],
-      DESKTOP: [
-        'desktopBrand',
-        'desktopModel',
-        'desktopSerialNumber',
-        'desktopMonitorBrand',
-        'desktopMonitorModel',
-        'desktopMonitorSerialNumber',
-        'desktopMacAddress',
-        'desktopProcessorType',
-        'desktopMemorySize',
-        'desktopStorageDriveType',
-        'desktopStorageDriveSize',
-        'desktopOperatingSystem',
-        'desktopEndpointSecurity',
-        'desktopSpiceworksMonitoring',
-      ],
-      PRINTER: ['printerBrand', 'printerModel', 'printerSerialNumber', 'printerMacAddress', 'printerTonerNumber'],
-      UPS: ['upsBrand', 'upsModel', 'upsSerialNumber'],
-      OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber', 'otherMacAddress', 'deviceTypeOther'],
-    };
-
-    // Check for required fields
-    const missingRequiredFields = requiredFields[dto.deviceType]?.filter(field => dto[field] === undefined || dto[field] === null);
-    if (missingRequiredFields?.length > 0) {
-      throw new BadRequestException(`Missing required fields for ${dto.deviceType}: ${missingRequiredFields.join(', ')}`);
-    }
-
-    // Check for invalid fields
-    const providedFields = Object.keys(dto).filter(key => key !== 'deviceType' && dto[key] !== undefined);
-    const invalidFields = providedFields.filter(field => !allowedFields[dto.deviceType]?.includes(field));
-    if (invalidFields.length > 0) {
-      throw new BadRequestException(`Invalid fields for ${dto.deviceType}: ${invalidFields.join(', ')}`);
-    }
-
-    switch (dto.deviceType) {
-      case 'LAPTOP':
-        const laptop = await tx.laptopDetails.upsert({
-          where: { inventoryId },
-          update: {
-            laptopBrand: dto.laptopBrand,
-            laptopModel: dto.laptopModel,
-            laptopSerialNumber: dto.laptopSerialNumber,
-            laptopMacAddress: dto.laptopMacAddress,
-            laptopProcessorType: dto.laptopProcessorType || "",
-            laptopMemorySize: dto.laptopMemorySize || "",
-            laptopStorageDriveType: dto.laptopStorageDriveType || "",
-            laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
-            laptopOperatingSystem: dto.laptopOperatingSystem || "",
-            laptopEndpointSecurity:
-            dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
-              ? null
-              : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
-          laptopSpiceworksMonitoring:
-            dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
-              ? null
-              : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
-        },
-          create: {
-            inventoryId,
-            laptopBrand: dto.laptopBrand,
-            laptopModel: dto.laptopModel,
-            laptopSerialNumber: dto.laptopSerialNumber,
-            laptopMacAddress: dto.laptopMacAddress,
-            laptopProcessorType: dto.laptopProcessorType || "",
-            laptopMemorySize: dto.laptopMemorySize || "",
-            laptopStorageDriveType: dto.laptopStorageDriveType || "",
-            laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
-            laptopOperatingSystem: dto.laptopOperatingSystem || "",
-            laptopEndpointSecurity:
-            dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
-              ? null
-              : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
-          laptopSpiceworksMonitoring:
-            dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
-              ? null
-              : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
-          },
-        });
-        actionType = AuditActionType.LAPTOP_DETAILS_UPDATED;
-        entityType = 'LaptopDetails';
-        entityId = laptop.id;
-        newState = {
-          laptopBrand: dto.laptopBrand,
-          laptopModel: dto.laptopModel,
-          laptopSerialNumber: dto.laptopSerialNumber,
-          laptopMacAddress: dto.laptopMacAddress,
-          laptopProcessorType: dto.laptopProcessorType,
-          laptopMemorySize: dto.laptopMemorySize,
-          laptopStorageDriveType: dto.laptopStorageDriveType,
-          laptopStorageDriveSize: dto.laptopStorageDriveSize,
-          laptopOperatingSystem: dto.laptopOperatingSystem,
-          laptopEndpointSecurity: dto.laptopEndpointSecurity,
-          laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
-        };
-        break;
-
-      case 'DESKTOP':
-        const desktop = await tx.desktopDetails.upsert({
-          where: { inventoryId },
-          update: {
-            desktopBrand: dto.desktopBrand,
-            desktopModel: dto.desktopModel,
-            desktopSerialNumber: dto.desktopSerialNumber,
-            desktopMonitorBrand: dto.desktopMonitorBrand,
-            desktopMonitorModel: dto.desktopMonitorModel,
-            desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-            desktopMacAddress: dto.desktopMacAddress,
-            desktopProcessorType: dto.desktopProcessorType || "",
-            desktopMemorySize: dto.desktopMemorySize || "",
-            desktopStorageDriveType: dto.desktopStorageDriveType || "",
-            desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
-            desktopOperatingSystem: dto.desktopOperatingSystem || "",
-            desktopEndpointSecurity:
-        dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
-          ? null
-          : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
-          desktopSpiceworksMonitoring:
-        dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
-          ? null
-          : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
-    },
-          create: {
-            inventoryId,
-            desktopBrand: dto.desktopBrand,
-            desktopModel: dto.desktopModel,
-            desktopSerialNumber: dto.desktopSerialNumber,
-            desktopMonitorBrand: dto.desktopMonitorBrand,
-            desktopMonitorModel: dto.desktopMonitorModel,
-            desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-            desktopMacAddress: dto.desktopMacAddress,
-            desktopProcessorType: dto.desktopProcessorType || "",
-            desktopMemorySize: dto.desktopMemorySize || "",
-            desktopStorageDriveType: dto.desktopStorageDriveType || "",
-            desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
-            desktopOperatingSystem: dto.desktopOperatingSystem || "",
-            desktopEndpointSecurity:
-        dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
-          ? null
-          : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
-          desktopSpiceworksMonitoring:
-        dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
-          ? null
-          : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
-          },
-        });
-        actionType = AuditActionType.DESKTOP_DETAILS_UPDATED;
-        entityType = 'DesktopDetails';
-        entityId = desktop.id;
-        newState = {
-          desktopBrand: dto.desktopBrand,
-          desktopModel: dto.desktopModel,
-          desktopSerialNumber: dto.desktopSerialNumber,
-          desktopMonitorBrand: dto.desktopMonitorBrand,
-          desktopMonitorModel: dto.desktopMonitorModel,
-          desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-          desktopMacAddress: dto.desktopMacAddress,
-          desktopProcessorType: dto.desktopProcessorType,
-          desktopMemorySize: dto.desktopMemorySize,
-          desktopStorageDriveType: dto.desktopStorageDriveType,
-          desktopStorageDriveSize: dto.desktopStorageDriveSize,
-          desktopOperatingSystem: dto.desktopOperatingSystem,
-          desktopEndpointSecurity: dto.desktopEndpointSecurity,
-          desktopSpiceworksMonitoring: dto.desktopSpiceworksMonitoring,
-        };
-        break;
-
-      case 'PRINTER':
-        const printer = await tx.printerDetails.upsert({
-          where: { inventoryId },
-          update: {
-            printerBrand: dto.printerBrand,
-            printerModel: dto.printerModel,
-            printerSerialNumber: dto.printerSerialNumber,
-            printerMacAddress: dto.printerMacAddress,
-            printerTonerNumber: dto.printerTonerNumber,
-          },
-          create: {
-            inventoryId,
-            printerBrand: dto.printerBrand,
-            printerModel: dto.printerModel,
-            printerSerialNumber: dto.printerSerialNumber,
-            printerMacAddress: dto.printerMacAddress,
-            printerTonerNumber: dto.printerTonerNumber,
-          },
-        });
-        actionType = AuditActionType.PRINTER_DETAILS_UPDATED;
-        entityType = 'PrinterDetails';
-        entityId = printer.id;
-        newState = {
-          printerBrand: dto.printerBrand,
-          printerModel: dto.printerModel,
-          printerSerialNumber: dto.printerSerialNumber,
-          printerMacAddress: dto.printerMacAddress,
-          printerTonerNumber: dto.printerTonerNumber,
-        };
-        break;
-
-      case 'UPS':
-        const ups = await tx.uPSDetails.upsert({
-          where: { inventoryId },
-          update: {
-            upsBrand: dto.upsBrand,
-            upsModel: dto.upsModel,
-            upsSerialNumber: dto.upsSerialNumber,
-          },
-          create: {
-            inventoryId,
-            upsBrand: dto.upsBrand,
-            upsModel: dto.upsModel,
-            upsSerialNumber: dto.upsSerialNumber,
-          },
-        });
-        actionType = AuditActionType.UPS_DETAILS_UPDATED;
-        entityType = 'UPSDetails';
-        entityId = ups.id;
-        newState = {
-          upsBrand: dto.upsBrand,
-          upsModel: dto.upsModel,
-          upsSerialNumber: dto.upsSerialNumber,
-        };
-        break;
-
-      case 'OTHER':
-        const other = await tx.otherDetails.upsert({
-          where: { inventoryId },
-          update: {
-            otherBrand: dto.otherBrand,
-            otherModel: dto.otherModel,
-            otherSerialNumber: dto.otherSerialNumber,
-            otherMacAddress: dto.otherMacAddress,
-            deviceType: dto.deviceTypeOther,
-          },
-          create: {
-            inventoryId,
-            otherBrand: dto.otherBrand,
-            otherModel: dto.otherModel,
-            otherSerialNumber: dto.otherSerialNumber,
-            otherMacAddress: dto.otherMacAddress,
-            deviceType: dto.deviceTypeOther,
-          },
-        });
-        actionType = AuditActionType.OTHER_DETAILS_UPDATED;
-        entityType = 'OtherDetails';
-        entityId = other.id;
-        newState = {
-          otherBrand: dto.otherBrand,
-          otherModel: dto.otherModel,
-          otherSerialNumber: dto.otherSerialNumber,
-          otherMacAddress: dto.otherMacAddress,
-          deviceTypeOther: dto.deviceTypeOther,
-        };
-        break;
-
-      default:
-        throw new BadRequestException(`Invalid device type: ${dto.deviceType}`);
-    }
-
-    const auditPayload: AuditPayload = {
-      actionType,
-      performedById: officerId,
-      affectedUserId: inventory.userId,
-      entityType,
-      entityId,
-      oldState: null, // Consider fetching old state if needed
-      newState,
-      ipAddress,
-      userAgent,
-      details: { inventoryId },
-    };
-
-    await this.auditService.logAction(auditPayload, tx);
-    return { message: `Device details for inventory ${inventoryId} updated` };
-  });
-}
+  }
 }
