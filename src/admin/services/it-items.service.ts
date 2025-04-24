@@ -12,6 +12,27 @@ export class AdminITItemsService {
     private auditService: AuditService,
   ) {}
 
+    // fetch available IT items
+    async getAvailableITItems() {
+      return this.prisma.iTItem.findMany({
+        where: {
+          deletedAt: null,
+          stock: { quantityInStock: { gt: 0 } },
+        },
+        select: {
+          id: true,
+          itemID: true,
+          deviceType: true,
+          itemClass: true,
+          brand: true,
+          model: true,
+          specifications: true,
+          stock: { select: { quantityInStock: true } },
+        },
+        orderBy: { brand: 'asc' },
+      });
+    }
+    
   async createITItem(adminId: string, dto: CreateITItemDto, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       // Validate supplier if provided
