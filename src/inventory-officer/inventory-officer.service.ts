@@ -356,243 +356,174 @@ export class InventoryOfficerService {
       if (invalidFields.length > 0) {
         throw new BadRequestException(`Invalid fields for ${dto.deviceType}: ${invalidFields.join(', ')}`);
       }
+
+       // Helper function to build update and create data
+       const buildUpdateData = (fields: string[], dto: UpdateDeviceDetailsDto) => {
+        const updateData: any = {};
+        const createData: any = { inventoryId };
+
+        fields.forEach((field) => {
+          const value = dto[field];
+          if (value !== undefined && value !== null && value !== '') {
+            if (['laptopEndpointSecurity', 'laptopSpiceworksMonitoring', 'desktopEndpointSecurity', 'desktopSpiceworksMonitoring'].includes(field)) {
+              updateData[field] = value === 'true' || value === true ? true : value === 'false' || value === false ? false : null;
+              createData[field] = value === 'true' || value === true ? true : value === 'false' || value === false ? false : null;
+            } else {
+              updateData[field] = value;
+              createData[field] = value;
+            }
+          }
+        });
+
+        return { updateData, createData };
+      };
   
       switch (dto.deviceType) {
         case 'LAPTOP':
+          const { updateData: laptopUpdate, createData: laptopCreate } = buildUpdateData(
+            allowedFields.LAPTOP,
+            dto,
+          );
           const laptop = await tx.laptopDetails.upsert({
             where: { inventoryId },
-            update: {
-              laptopBrand: dto.laptopBrand,
-              laptopModel: dto.laptopModel,
-              laptopSerialNumber: dto.laptopSerialNumber,
-              laptopMacAddress: dto.laptopMacAddress,
-              laptopProcessorType: dto.laptopProcessorType || "",
-              laptopMemorySize: dto.laptopMemorySize || "",
-              laptopStorageDriveType: dto.laptopStorageDriveType || "",
-              laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
-              laptopOperatingSystem: dto.laptopOperatingSystem || "",
-              laptopEndpointSecurity:
-              dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
-                ? null
-                : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
-            laptopSpiceworksMonitoring:
-              dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
-                ? null
-                : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
-          },
+            update: laptopUpdate,
             create: {
-              inventoryId,
-              laptopBrand: dto.laptopBrand,
-              laptopModel: dto.laptopModel,
-              laptopSerialNumber: dto.laptopSerialNumber,
-              laptopMacAddress: dto.laptopMacAddress,
-              laptopProcessorType: dto.laptopProcessorType || "",
-              laptopMemorySize: dto.laptopMemorySize || "",
-              laptopStorageDriveType: dto.laptopStorageDriveType || "",
-              laptopStorageDriveSize: dto.laptopStorageDriveSize || "",
-              laptopOperatingSystem: dto.laptopOperatingSystem || "",
-              laptopEndpointSecurity:
-              dto.laptopEndpointSecurity === "" || dto.laptopEndpointSecurity === null
-                ? null
-                : dto.laptopEndpointSecurity === "true" || dto.laptopEndpointSecurity === true,
-            laptopSpiceworksMonitoring:
-              dto.laptopSpiceworksMonitoring === "" || dto.laptopSpiceworksMonitoring === null
-                ? null
-                : dto.laptopSpiceworksMonitoring === "true" || dto.laptopSpiceworksMonitoring === true,
+              ...laptopCreate,
+              laptopBrand: dto.laptopBrand || '',
+              laptopModel: dto.laptopModel || '',
+              laptopSerialNumber: dto.laptopSerialNumber || '',
+              laptopMacAddress: laptopCreate.laptopMacAddress || '',
+              laptopProcessorType: laptopCreate.laptopProcessorType || '',
+              laptopMemorySize: laptopCreate.laptopMemorySize || '',
+              laptopStorageDriveType: laptopCreate.laptopStorageDriveType || '',
+              laptopStorageDriveSize: laptopCreate.laptopStorageDriveSize || '',
+              laptopOperatingSystem: laptopCreate.laptopOperatingSystem || '',
+              laptopEndpointSecurity: laptopCreate.laptopEndpointSecurity ?? null,
+              laptopSpiceworksMonitoring: laptopCreate.laptopSpiceworksMonitoring ?? null,
             },
           });
           actionType = AuditActionType.LAPTOP_DETAILS_UPDATED;
           entityType = 'LaptopDetails';
-          entityId = laptop.id;
-          newState = {
-            laptopBrand: dto.laptopBrand,
-            laptopModel: dto.laptopModel,
-            laptopSerialNumber: dto.laptopSerialNumber,
-            laptopMacAddress: dto.laptopMacAddress,
-            laptopProcessorType: dto.laptopProcessorType,
-            laptopMemorySize: dto.laptopMemorySize,
-            laptopStorageDriveType: dto.laptopStorageDriveType,
-            laptopStorageDriveSize: dto.laptopStorageDriveSize,
-            laptopOperatingSystem: dto.laptopOperatingSystem,
-            laptopEndpointSecurity: dto.laptopEndpointSecurity,
-            laptopSpiceworksMonitoring: dto.laptopSpiceworksMonitoring,
-          };
+          entityId = laptop.inventoryId; 
+          newState = { ...laptopUpdate };
           break;
-  
+
         case 'DESKTOP':
+          const { updateData: desktopUpdate, createData: desktopCreate } = buildUpdateData(
+            allowedFields.DESKTOP,
+            dto,
+          );
           const desktop = await tx.desktopDetails.upsert({
             where: { inventoryId },
-            update: {
-              desktopBrand: dto.desktopBrand,
-              desktopModel: dto.desktopModel,
-              desktopSerialNumber: dto.desktopSerialNumber,
-              desktopMonitorBrand: dto.desktopMonitorBrand,
-              desktopMonitorModel: dto.desktopMonitorModel,
-              desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-              desktopMacAddress: dto.desktopMacAddress,
-              desktopProcessorType: dto.desktopProcessorType || "",
-              desktopMemorySize: dto.desktopMemorySize || "",
-              desktopStorageDriveType: dto.desktopStorageDriveType || "",
-              desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
-              desktopOperatingSystem: dto.desktopOperatingSystem || "",
-              desktopEndpointSecurity:
-          dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
-            ? null
-            : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
-            desktopSpiceworksMonitoring:
-          dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
-            ? null
-            : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
-      },
+            update: desktopUpdate,
             create: {
-              inventoryId,
-              desktopBrand: dto.desktopBrand,
-              desktopModel: dto.desktopModel,
-              desktopSerialNumber: dto.desktopSerialNumber,
-              desktopMonitorBrand: dto.desktopMonitorBrand,
-              desktopMonitorModel: dto.desktopMonitorModel,
-              desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-              desktopMacAddress: dto.desktopMacAddress,
-              desktopProcessorType: dto.desktopProcessorType || "",
-              desktopMemorySize: dto.desktopMemorySize || "",
-              desktopStorageDriveType: dto.desktopStorageDriveType || "",
-              desktopStorageDriveSize: dto.desktopStorageDriveSize || "",
-              desktopOperatingSystem: dto.desktopOperatingSystem || "",
-              desktopEndpointSecurity:
-          dto.desktopEndpointSecurity === "" || dto.desktopEndpointSecurity === null
-            ? null
-            : dto.desktopEndpointSecurity === "true" || dto.desktopEndpointSecurity === true,
-            desktopSpiceworksMonitoring:
-          dto.desktopSpiceworksMonitoring === "" || dto.desktopSpiceworksMonitoring === null
-            ? null
-            : dto.desktopSpiceworksMonitoring === "true" || dto.desktopSpiceworksMonitoring === true,
+              ...desktopCreate,
+              desktopBrand: dto.desktopBrand || '',
+              desktopModel: dto.desktopModel || '',
+              desktopSerialNumber: dto.desktopSerialNumber || '',
+              desktopMonitorBrand: desktopCreate.desktopMonitorBrand || '',
+              desktopMonitorModel: desktopCreate.desktopMonitorModel || '',
+              desktopMonitorSerialNumber: desktopCreate.desktopMonitorSerialNumber || '',
+              desktopMacAddress: desktopCreate.desktopMacAddress || '',
+              desktopProcessorType: desktopCreate.desktopProcessorType || '',
+              desktopMemorySize: desktopCreate.desktopMemorySize || '',
+              desktopStorageDriveType: desktopCreate.desktopStorageDriveType || '',
+              desktopStorageDriveSize: desktopCreate.desktopStorageDriveSize || '',
+              desktopOperatingSystem: desktopCreate.desktopOperatingSystem || '',
+              desktopEndpointSecurity: desktopCreate.desktopEndpointSecurity ?? null,
+              desktopSpiceworksMonitoring: desktopCreate.desktopSpiceworksMonitoring ?? null,
             },
           });
           actionType = AuditActionType.DESKTOP_DETAILS_UPDATED;
           entityType = 'DesktopDetails';
-          entityId = desktop.id;
-          newState = {
-            desktopBrand: dto.desktopBrand,
-            desktopModel: dto.desktopModel,
-            desktopSerialNumber: dto.desktopSerialNumber,
-            desktopMonitorBrand: dto.desktopMonitorBrand,
-            desktopMonitorModel: dto.desktopMonitorModel,
-            desktopMonitorSerialNumber: dto.desktopMonitorSerialNumber,
-            desktopMacAddress: dto.desktopMacAddress,
-            desktopProcessorType: dto.desktopProcessorType,
-            desktopMemorySize: dto.desktopMemorySize,
-            desktopStorageDriveType: dto.desktopStorageDriveType,
-            desktopStorageDriveSize: dto.desktopStorageDriveSize,
-            desktopOperatingSystem: dto.desktopOperatingSystem,
-            desktopEndpointSecurity: dto.desktopEndpointSecurity,
-            desktopSpiceworksMonitoring: dto.desktopSpiceworksMonitoring,
-          };
+          entityId = desktop.inventoryId;
+          newState = { ...desktopUpdate };
           break;
-  
+
         case 'PRINTER':
+          const { updateData: printerUpdate, createData: printerCreate } = buildUpdateData(
+            allowedFields.PRINTER,
+            dto,
+          );
           const printer = await tx.printerDetails.upsert({
             where: { inventoryId },
-            update: {
-              printerBrand: dto.printerBrand,
-              printerModel: dto.printerModel,
-              printerSerialNumber: dto.printerSerialNumber,
-              printerMacAddress: dto.printerMacAddress,
-              printerTonerNumber: dto.printerTonerNumber,
-            },
+            update: printerUpdate,
             create: {
-              inventoryId,
-              printerBrand: dto.printerBrand,
-              printerModel: dto.printerModel,
-              printerSerialNumber: dto.printerSerialNumber,
-              printerMacAddress: dto.printerMacAddress,
-              printerTonerNumber: dto.printerTonerNumber,
+              ...printerCreate,
+              printerBrand: dto.printerBrand || '',
+              printerModel: dto.printerModel || '',
+              printerSerialNumber: dto.printerSerialNumber || '',
+              printerMacAddress: printerCreate.printerMacAddress || '',
+              printerTonerNumber: printerCreate.printerTonerNumber || '',
             },
           });
           actionType = AuditActionType.PRINTER_DETAILS_UPDATED;
           entityType = 'PrinterDetails';
-          entityId = printer.id;
-          newState = {
-            printerBrand: dto.printerBrand,
-            printerModel: dto.printerModel,
-            printerSerialNumber: dto.printerSerialNumber,
-            printerMacAddress: dto.printerMacAddress,
-            printerTonerNumber: dto.printerTonerNumber,
-          };
+          entityId = printer.inventoryId;
+          newState = { ...printerUpdate };
           break;
-  
+
         case 'UPS':
+          const { updateData: upsUpdate, createData: upsCreate } = buildUpdateData(
+            allowedFields.UPS,
+            dto,
+          );
           const ups = await tx.uPSDetails.upsert({
             where: { inventoryId },
-            update: {
-              upsBrand: dto.upsBrand,
-              upsModel: dto.upsModel,
-              upsSerialNumber: dto.upsSerialNumber,
-            },
+            update: upsUpdate,
             create: {
-              inventoryId,
-              upsBrand: dto.upsBrand,
-              upsModel: dto.upsModel,
-              upsSerialNumber: dto.upsSerialNumber,
+              ...upsCreate,
+              upsBrand: dto.upsBrand || '',
+              upsModel: dto.upsModel || '',
+              upsSerialNumber: dto.upsSerialNumber || '',
             },
           });
           actionType = AuditActionType.UPS_DETAILS_UPDATED;
           entityType = 'UPSDetails';
-          entityId = ups.id;
-          newState = {
-            upsBrand: dto.upsBrand,
-            upsModel: dto.upsModel,
-            upsSerialNumber: dto.upsSerialNumber,
-          };
+          entityId = ups.inventoryId;
+          newState = { ...upsUpdate };
           break;
-  
+
         case 'OTHER':
+          const { updateData: otherUpdate, createData: otherCreate } = buildUpdateData(
+            allowedFields.OTHER,
+            dto,
+          );
           const other = await tx.otherDetails.upsert({
             where: { inventoryId },
-            update: {
-              otherBrand: dto.otherBrand,
-              otherModel: dto.otherModel,
-              otherSerialNumber: dto.otherSerialNumber,
-              otherMacAddress: dto.otherMacAddress,
-              deviceType: dto.deviceTypeOther,
-            },
+            update: otherUpdate,
             create: {
-              inventoryId,
-              otherBrand: dto.otherBrand,
-              otherModel: dto.otherModel,
-              otherSerialNumber: dto.otherSerialNumber,
-              otherMacAddress: dto.otherMacAddress,
-              deviceType: dto.deviceTypeOther,
+              ...otherCreate,
+              otherBrand: dto.otherBrand || '',
+              otherModel: dto.otherModel || '',
+              otherSerialNumber: dto.otherSerialNumber || '',
+              otherMacAddress: otherCreate.otherMacAddress || '',
+              deviceTypeOther: otherCreate.deviceTypeOther || '',
             },
           });
           actionType = AuditActionType.OTHER_DETAILS_UPDATED;
           entityType = 'OtherDetails';
-          entityId = other.id;
-          newState = {
-            otherBrand: dto.otherBrand,
-            otherModel: dto.otherModel,
-            otherSerialNumber: dto.otherSerialNumber,
-            otherMacAddress: dto.otherMacAddress,
-            deviceTypeOther: dto.deviceTypeOther,
-          };
+          entityId = other.inventoryId;
+          newState = { ...otherUpdate };
           break;
-  
+
         default:
           throw new BadRequestException(`Invalid device type: ${dto.deviceType}`);
       }
-  
+
       const auditPayload: AuditPayload = {
         actionType,
         performedById: officerId,
         affectedUserId: inventory.userId,
         entityType,
         entityId,
-        oldState: null, // Consider fetching old state if needed
+        oldState: null,
         newState,
         ipAddress,
         userAgent,
         details: { inventoryId },
       };
-  
+
       await this.auditService.logAction(auditPayload, tx);
       return { message: `Device details for inventory ${inventoryId} updated` };
     });
