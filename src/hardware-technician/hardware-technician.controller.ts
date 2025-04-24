@@ -9,6 +9,20 @@ import { CreateMaintenanceTicketDto, SearchDevicesDto } from './dto/hardware-tec
 export class HardwareTechnicianController {
   constructor(private readonly hardwareTechnicianService: HardwareTechnicianService) {}
 
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hardware_technician')
+  async getUsers() {
+    return this.hardwareTechnicianService.getUsers();
+  }
+
+  @Get('fixed-assets')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hardware_technician')
+  async getAllFixedAssets() {
+    return this.hardwareTechnicianService.getAllFixedAssets();
+  }
+  
   @Post('tickets/create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('hardware_technician')
