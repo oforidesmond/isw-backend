@@ -24,6 +24,55 @@ export class HardwareTechnicianService {
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
+  // Fetch all fixed assets for hardware technician
+  async getAllFixedAssets() {
+    return this.prisma.inventory.findMany({
+      where: {
+        itItem: {
+          itemClass: 'FIXED_ASSET',
+        },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        itItem: {
+          select: {
+            brand: true,
+            model: true,
+            deviceType: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            roomNo: true
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        unit: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        status: true,
+        purchaseDate: true,
+        warrantyPeriod: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  //Create Ticket
   async createMaintenanceTicket(
     technicianId: string,
     dto: CreateMaintenanceTicketDto,
@@ -253,6 +302,38 @@ export class HardwareTechnicianService {
 
       await this.auditService.logAction(auditPayload, tx);
       return { message: `Maintenance ticket ${updatedTicket.ticketId} updated` };
+    });
+  }
+
+  //All users
+  async getUsers() {
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        unitId: true,
+        unit: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
     });
   }
 
