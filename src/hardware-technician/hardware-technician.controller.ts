@@ -9,6 +9,13 @@ import { CreateMaintenanceTicketDto, FilterTicketsDto, SearchDevicesDto, UpdateM
 export class HardwareTechnicianController {
   constructor(private readonly hardwareTechnicianService: HardwareTechnicianService) {}
 
+  @Get('technicians')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hardware_technician')
+  async getHardwareTechnicians() {
+    return this.hardwareTechnicianService.getHardwareTechnicians();
+  }
+
   @Post('tickets/create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('hardware_technician')

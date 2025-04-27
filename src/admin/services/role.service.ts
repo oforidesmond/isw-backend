@@ -36,6 +36,34 @@ export class RoleService {
     });
   }
 
+   // Get all permissions
+   async getAllPermissions(includeRoles: boolean = false) {
+    return this.prisma.permission.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        resource: true,
+        actions: true,
+        ...(includeRoles && {
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            where: { role: { deletedAt: null } }, 
+          },
+        })
+      },
+      orderBy: {
+        resource: 'asc',
+      },
+    });
+  }
+
   //Create Role
   async createRole(data: CreateRoleDto, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
