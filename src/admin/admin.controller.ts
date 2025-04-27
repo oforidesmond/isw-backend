@@ -265,4 +265,12 @@ async updateRolePermissions(
        req.headers['user-agent'],
      );
    }
+
+   // Get all permissions
+   @Get('permissions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllPermissions(@Query('includeRoles') includeRoles?: string) {
+    return this.roleService.getAllPermissions(includeRoles === 'true');
+  }
 }

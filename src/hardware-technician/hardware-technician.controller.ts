@@ -16,6 +16,13 @@ export class HardwareTechnicianController {
     return this.hardwareTechnicianService.getUsers();
   }
 
+  @Get('technicians')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hardware_technician')
+  async getHardwareTechnicians() {
+    return this.hardwareTechnicianService.getHardwareTechnicians();
+  }
+
   @Get('fixed-assets')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('hardware_technician')

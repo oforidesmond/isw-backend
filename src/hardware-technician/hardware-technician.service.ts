@@ -47,6 +47,32 @@ export class HardwareTechnicianService {
     });
   }
 
+  // Get all technicians
+  async getHardwareTechnicians() {
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        roles: {
+          some: {
+            role: {
+              name: 'hardware_technician',
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        staffId: true, 
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+  
   // Fetch all fixed assets for hardware technician
   async getAllFixedAssets() {
     return this.prisma.inventory.findMany({
