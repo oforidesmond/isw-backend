@@ -319,4 +319,35 @@ async updateRolePermissions(
     );
   }
 
+  // Soft delete a permission
+  @Delete('permissions/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async softDeletePermission(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    return this.roleService.softDeletePermission(
+      id,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+// Soft delete a role
+@Delete('roles/:id')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async softDeleteRole(
+  @Param('id') id: string,
+  @Request() req,
+) {
+  return this.roleService.softDeleteRole(
+    id,
+    req.user.userId,
+    req.ip,
+    req.headers['user-agent'],
+  );
+}
 }
