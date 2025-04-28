@@ -16,6 +16,7 @@ import { CreateSupplierDto } from 'stores-officer/dto/create-stock-received.dto'
 import {SuppliersService} from './services/suppliers.service'
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { CreateUnitDto } from './dto/create-unit.dto';
+import { GetAuditLogsDto } from './dto/get-audit-logs.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -272,6 +273,82 @@ async updateRolePermissions(
   async getAllPermissions(@Query('includeRoles') includeRoles?: string) {
     return this.roleService.getAllPermissions(includeRoles === 'true');
   }
+
+    // // Soft delete a permission
+    // @Delete('permissions/:id')
+    // @UseGuards(JwtAuthGuard, RolesGuard)
+    // @Roles('admin')
+    // async softDeletePermission(
+    //   @Param('id') id: string,
+    //   @Request() req,
+    // ) {
+    //   return this.roleService.softDeletePermission(
+    //     id,
+    //     req.user.userId,
+    //     req.ip,
+    //     req.headers['user-agent'],
+    //   );
+    // }
+
+  // Get audit logs
+  @Get('audit-logs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAuditLogs(@Query() query: GetAuditLogsDto) {
+    return this.userQueryService.getAuditLogs({
+      actionType: query.actionType,
+      entityType: query.entityType,
+      startDate: query.startDate ? new Date(query.startDate) : undefined,
+      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      skip: query.skip,
+      take: query.take,
+    });
+  }
+
+  // Soft delete a supplier
+  @Delete('suppliers/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async softDeleteSupplier(@Param('id') id: string, @Request() req) {
+    return this.SuppliersService.softDeleteSupplier(
+      id,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+     // Soft delete an IT item
+  @Delete('it-items/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async softDeleteITItem(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    return this.adminITItemsService.softDeleteITItem(
+      id,
+      req.user.userId,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  // // Soft delete a role
+  // @Delete('roles/:id')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('admin')
+  // async softDeleteRole(
+  //   @Param('id') id: string,
+  //   @Request() req,
+  // ) {
+  //   return this.roleService.softDeleteRole(
+  //     id,
+  //     req.user.userId,
+  //     req.ip,
+  //     req.headers['user-agent'],
+  //   );
+  // }
 }
 
   

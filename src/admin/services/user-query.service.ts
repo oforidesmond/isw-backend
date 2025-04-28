@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { AuditActionType, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 
 
@@ -68,5 +69,89 @@ export class UserQueryService {
         },
       },
     });
+  }
+
+   // Get audit logs with filtering and pagination
+  async getAuditLogs({
+    actionType,
+    entityType,
+    startDate,
+    endDate,
+    skip = 0,
+    take = 10,
+  }: {
+    actionType?: AuditActionType;
+    entityType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    skip?: number;
+    take?: number;
+  }) {
+    // Validate pagination parameters
+    if (skip < 0 || take < 1) {
+      throw new BadRequestException('Invalid pagination parameters');
+    }
+
+    // Build where clause for filtering
+    const where: Prisma.AuditLogWhereInput = {
+      deletedAt: null,
+      ...(actionType && { actionType }),
+      ...(entityType && { entityType }),
+      ...(startDate || endDate
+        ? {
+            createdAt: {
+              ...(startDate && { gte: startDate }),
+              ...(endDate && { lte: endDate }),
+            },
+          }
+        : {}),
+    };
+
+    // Fetch audit logs
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where,
+      select: {
+        id: true,
+        actionType: true,
+        performedBy: {
+          select: {
+            id: true,
+            staffId: true,
+            name: true,
+            email: true,
+          },
+        },
+        affectedUser: {
+          select: {
+            id: true,
+            staffId: true,
+            name: true,
+            email: true,
+          },
+        },
+        entityType: true,
+        entityId: true,
+        oldState: true,
+        newState: true,
+        ipAddress: true,
+        userAgent: true,
+        details: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take,
+    });
+
+    const total = await this.prisma.auditLog.count({ where });
+
+    return {
+      data: auditLogs,
+      total,
+      skip,
+      take,
+    };
   }
 }
