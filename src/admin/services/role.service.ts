@@ -64,134 +64,144 @@ export class RoleService {
     });
   }
 
-  // // Soft delete a permission
-  // async softDeletePermission(
-  //   permissionId: string,
-  //   adminId: string,
-  //   ipAddress?: string,
-  //   userAgent?: string,
-  // ) {
-  //   return this.prisma.$transaction(async (tx) => {
-  //     // Find the permission
-  //     const permission = await tx.permission.findUnique({
-  //       where: { id: permissionId },
-  //     });
+  // Soft delete a permission
+  async softDeletePermission(
+    permissionId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      // Find the permission
+      const permission = await tx.permission.findUnique({
+        where: { id: permissionId },
+      });
 
-  //     if (!permission) {
-  //       throw new NotFoundException(`Permission with ID ${permissionId} not found`);
-  //     }
+      if (!permission) {
+        throw new NotFoundException(`Permission with ID ${permissionId} not found`);
+      }
 
-  //     if (permission.deletedAt) {
-  //       throw new BadRequestException(`Permission with ID ${permissionId} is already deleted`);
-  //     }
+      if (permission.deletedAt) {
+        throw new BadRequestException(`Permission with ID ${permissionId} is already deleted`);
+      }
 
-  //     // Soft delete the permission
-  //     await tx.permission.update({
-  //       where: { id: permissionId },
-  //       data: { deletedAt: new Date() },
-  //     });
+      // Soft delete the permission
+      await tx.permission.update({
+        where: { id: permissionId },
+        data: { deletedAt: new Date() },
+      });
 
-  //     // Soft delete associated RolePermission records
-  //     await tx.rolePermission.updateMany({
-  //       where: { permissionId: permissionId, deletedAt: null },
-  //       data: { deletedAt: new Date() },
-  //     });
+      // Soft delete associated RolePermission records
+      await tx.rolePermission.updateMany({
+        where: { permissionId: permissionId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
 
-  //     // Prepare audit log
-  //     const oldState: Prisma.JsonObject = {
-  //       resource: permission.resource,
-  //       actions: permission.actions,
-  //     };
+      // Prepare audit log
+      const oldState: Prisma.JsonObject = {
+        resource: permission.resource,
+        actions: permission.actions,
+      };
 
-  //     const auditPayload: AuditPayload = {
-  //       actionType: 'PERMISSION_DELETED',
-  //       performedById: adminId,
-  //       affectedUserId: null,
-  //       entityType: 'Permission',
-  //       entityId: permission.id,
-  //       oldState,
-  //       newState: null,
-  //       ipAddress,
-  //       userAgent,
-  //       details: { softDelete: true },
-  //     };
+      const auditPayload: AuditPayload = {
+        actionType: 'PERMISSION_DELETED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Permission',
+        entityId: permission.id,
+        oldState,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { softDelete: true },
+      };
 
-  //     // Log the action
-  //     await this.auditService.logAction(auditPayload, tx);
+      // Log the action
+      await this.auditService.logAction(auditPayload, tx);
 
-  //     return { message: `Permission ${permission.resource} soft-deleted successfully` };
-  //   });
-  // }
+      return { message: `Permission ${permission.resource} soft-deleted successfully` };
+    });
+  }
 
-  // // Soft delete a role
-  // async softDeleteRole(
-  //   roleId: string,
-  //   adminId: string,
-  //   ipAddress?: string,
-  //   userAgent?: string,
-  // ) {
-  //   return this.prisma.$transaction(async (tx) => {
-  //     // Find the role with permissions and users
-  //     const role = await tx.role.findUnique({
-  //       where: { id: roleId },
-  //       include: {
-  //         permissions: { where: { deletedAt: null } },
-  //         users: { where: { deletedAt: null } },
-  //       },
-  //     });
+  // Soft delete a role
+  async softDeleteRole(
+    roleId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      // Find the role with RolePermission and UserRole relations
+      const role = await tx.role.findUnique({
+        where: { id: roleId },
+        include: {
+          permissions: { 
+            where: { deletedAt: null },
+            select: { permissionId: true },
+          },
+          users: { 
+            where: { deletedAt: null },
+            select: { userId: true },
+          },
+        },
+      });
 
-  //     if (!role) {
-  //       throw new NotFoundException(`Role with ID ${roleId} not found`);
-  //     }
+      if (!role) {
+        throw new NotFoundException(`Role with ID ${roleId} not found`);
+      }
 
-  //     if (role.deletedAt) {
-  //       throw new BadRequestException(`Role with ID ${roleId} is already deleted`);
-  //     }
+      if (role.deletedAt) {
+        throw new BadRequestException(`Role with ID ${roleId} is already deleted`);
+      }
 
-  //     // Soft delete the role
-  //     await tx.role.update({
-  //       where: { id: roleId },
-  //       data: { deletedAt: new Date() },
-  //     });
+      if (role.name === 'admin') {
+        throw new BadRequestException('Cannot delete the admin role');
+      }
+      // Soft delete the role
+      await tx.role.update({
+        where: { id: roleId },
+        data: { deletedAt: new Date() },
+      });
 
-  //     // Soft delete associated RolePermission records
-  //     await tx.rolePermission.updateMany({
-  //       where: { roleId: roleId, deletedAt: null },
-  //       data: { deletedAt: new Date() },
-  //     });
+      // Soft delete associated RolePermission records
+      await tx.rolePermission.updateMany({
+        where: { roleId: roleId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
 
-  //     // Soft delete associated UserRole records
-  //     await tx.userRole.updateMany({
-  //       where: { roleId: roleId, deletedAt: null },
-  //       data: { deletedAt: new Date() },
-  //     });
+      // Soft delete associated UserRole records
+      await tx.userRole.updateMany({
+        where: { roleId: roleId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
 
-  //     // Prepare audit log
-  //     const oldState: Prisma.JsonObject = {
-  //       name: role.name,
-  //       permissions: role.permissions.map(p => p.permissionId),
-  //       users: role.users.map(u => u.userId),
-  //     };
+      // Prepare audit log
+      const oldState: Prisma.JsonObject = {
+        name: role.name,
+        permissions: role.permissions.map(p => p.permissionId),
+        users: role.users.map(u => u.userId),
+      };
 
-  //     const auditPayload: AuditPayload = {
-  //       actionType: 'ROLE_DELETED',
-  //       performedById: adminId,
-  //       affectedUserId: null,
-  //       entityType: 'Role',
-  //       entityId: role.id,
-  //       oldState,
-  //       newState: null,
-  //       ipAddress,
-  //       userAgent,
-  //       details: { softDelete: true },
-  //     };
+      const auditPayload: AuditPayload = {
+        actionType: 'ROLE_DELETED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Role',
+        entityId: role.id,
+        oldState,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { softDelete: true,  permissionCount: role.permissions.length,
+          userCount: role.users.length,},
+      };
 
-  //     // Log the action
-  //     await this.auditService.logAction(auditPayload, tx);
+      // Log the action
+      await this.auditService.logAction(auditPayload, tx);
 
-  //     return { message: `Role ${role.name} soft-deleted successfully` };
-  //   });
-  // }
+      return { message: `Role ${role.name} soft-deleted successfully` };
+    });
+  }
 
   //Create Role
   async createRole(data: CreateRoleDto, adminId: string, ipAddress?: string, userAgent?: string) {

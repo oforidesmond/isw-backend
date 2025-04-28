@@ -25,6 +25,7 @@ enum AuditActionType {
   //Permission Events
   PERMISSION_ASSIGNED
   PERMISSION_REVOKED
+  PERMISSION_DELETED
   // Requisition Events
   REQUISITION_SUBMITTED
    REQUISITION_DEPT_APPROVED
@@ -257,7 +258,7 @@ model UserRole {
   roleId    String
   createdAt DateTime @default(now())
   deletedAt DateTime? 
-
+  updatedAt DateTime  @updatedAt
   // Relationships
   user User @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -283,6 +284,9 @@ model RolePermission {
   roleId       String
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   permissionId String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   @@unique([roleId, permissionId])
   @@map("role_permissions")
