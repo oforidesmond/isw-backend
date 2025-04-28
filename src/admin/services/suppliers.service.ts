@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AuditPayload } from "admin/interfaces/audit-payload.interface";
 import { AuditService } from "audit/audit.service";
@@ -93,4 +93,60 @@ export class SuppliersService {
       },
     });
   }
+
+  // Soft delete a supplier
+  async softDeleteSupplier(
+    supplierId: string,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      // Find the supplier
+      const supplier = await tx.supplier.findUnique({
+        where: { id: supplierId },
+      });
+
+      if (!supplier) {
+        throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+      }
+
+      if (supplier.deletedAt) {
+        throw new BadRequestException(`Supplier with ID ${supplierId} is already deleted`);
+      }
+
+      // delete the supplier
+      await tx.supplier.update({
+        where: { id: supplierId },
+        data: { deletedAt: new Date() },
+      });
+
+      // Prepare audit log
+      const oldState: Prisma.JsonObject = {
+        supplierID: supplier.supplierID,
+        name: supplier.name,
+        lpoReference: supplier.lpoReference,
+        lpoDate: supplier.lpoDate ? supplier.lpoDate.toISOString() : null,
+        voucherNumber: supplier.voucherNumber,
+      };
+
+      const auditPayload: AuditPayload = {
+        actionType: 'SUPPLIER_DELETED',
+        performedById: adminId,
+        affectedUserId: null,
+        entityType: 'Supplier',
+        entityId: supplier.id,
+        oldState,
+        newState: null,
+        ipAddress,
+        userAgent,
+        details: { softDelete: true },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      return { message: `Supplier ${supplier.supplierID} soft-deleted successfully` };
+    });
+  }
+
 }
