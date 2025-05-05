@@ -102,3 +102,31 @@ export class RequisitionApprovalDelaysDto {
   @IsString()
   approverId?: string; // deptApproverId or itdApproverId
 }
+
+// Stock Reports
+
+export class StockReportDto {
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  itItemId?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string; // For StockIssued report, via Requisition
+
+  @IsOptional()
+  @IsNumberString()
+  minQuantity?: string; // For low stock thresholds, e.g., '10'
+
+  @IsOptional()
+  @IsString()
+  issuedById?: string; // For StockIssued report
+}

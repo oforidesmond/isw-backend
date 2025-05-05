@@ -8,6 +8,7 @@ import {
   OverdueTicketsReportDto,
   RequisitionApprovalDelaysDto,
   RequisitionReportDto,
+  StockReportDto,
   WorkReportDto,
 } from './dto/supervisor.dto';
 
@@ -69,5 +70,40 @@ export class SupervisorController {
   @Roles('supervisor')
   async getDeclinedRequisitionsAnalysis(@Query() dto: RequisitionReportDto, @Request() req) {
     return this.supervisorService.getDeclinedRequisitionsAnalysis(dto);
+  }
+
+  @Get('inventory')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getStockInventoryLevels(@Query() dto: StockReportDto, @Request() req) {
+    return this.supervisorService.getStockInventoryLevels(dto);
+  }
+
+  @Get('stock-received')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getStockReceivedReport(@Query() dto: StockReportDto, @Request() req) {
+    return this.supervisorService.getStockReceivedReport(dto);
+  }
+
+  @Get('stock-issued')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getStockIssuedReport(@Query() dto: StockReportDto, @Request() req) {
+    return this.supervisorService.getStockIssuedReport(dto);
+  }
+
+  @Get('stock-movement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getStockMovementTrends(@Query() dto: StockReportDto, @Request() req) {
+    return this.supervisorService.getStockMovementTrends(dto);
+  }
+
+  @Get('low-stock-alerts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getLowStockAlerts(@Query() dto: StockReportDto, @Request() req) {
+    return this.supervisorService.getLowStockAlerts(dto);
   }
 }
