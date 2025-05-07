@@ -11,7 +11,7 @@ export class HardwareTechnicianController {
 
   @Get('technicians')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('hardware_technician')
+  @Roles('hardware_technician', 'supervisor')
   async getHardwareTechnicians() {
     return this.hardwareTechnicianService.getHardwareTechnicians();
   }
@@ -48,7 +48,7 @@ export class HardwareTechnicianController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('hardware_technician')
+  @Roles('hardware_technician', 'supervisor')
   async getUsers() {
     return this.hardwareTechnicianService.getUsers();
   }

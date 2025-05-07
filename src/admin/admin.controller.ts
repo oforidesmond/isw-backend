@@ -194,7 +194,7 @@ async updateRolePermissions(
    //Get IT items
    @Get('it-items')
    @UseGuards(JwtAuthGuard, RolesGuard)
-   @Roles('admin')
+   @Roles('admin', 'supervisor')
    async getAvailableITItems() {
      return this.adminITItemsService.getAvailableITItems();
    }
@@ -202,7 +202,7 @@ async updateRolePermissions(
     // Get all departments
   @Get('departments')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'supervisor')
   async getAllDepartments(@Query('includeUnits') includeUnits?: string) {
     return this.userManagementService.getAllDepartments(includeUnits === 'true');
   }
