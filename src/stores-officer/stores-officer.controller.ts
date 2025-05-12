@@ -19,7 +19,7 @@ export class StoresOfficerController {
 
   @Get('stock-received')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer', 'supervisor')
   // @ApiOperation({ summary: 'Get all stock received records' })
   // @ApiResponse({ status: 200, description: 'List of stock received records' })
   // @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination', example: 1 })
