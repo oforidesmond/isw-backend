@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { MaintenanceReportDto, OverdueTicketsReportDto, RequisitionApprovalDelaysDto, RequisitionReportDto, StockReportDto, WorkReportDto } from './dto/supervisor.dto';
+import { InventoryReportDto, MaintenanceReportDto, OverdueTicketsReportDto, RequisitionApprovalDelaysDto, RequisitionReportDto, StockReportDto, WorkReportDto } from './dto/supervisor.dto';
 
 @Injectable()
 export class SupervisorService {
@@ -731,5 +731,334 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
       totalLowStockItems: stocks.length,
       stocks: formattedStocks,
     };
+  }
+  async getInventoryAgeReport(dto: InventoryReportDto) {
+    const where: Prisma.InventoryWhereInput = { deletedAt: null };
+
+    // Date-based filters
+    if (dto.startPurchaseDate || dto.endPurchaseDate || dto.minAgeYears || dto.maxAgeYears) {
+      where.purchaseDate = {};
+      if (dto.startPurchaseDate) {
+        where.purchaseDate.gte = new Date(dto.startPurchaseDate);
+      }
+      if (dto.endPurchaseDate) {
+        where.purchaseDate.lte = new Date(dto.endPurchaseDate);
+      }
+
+      // Age-based filters
+      const currentDate = new Date();
+      if (dto.minAgeYears) {
+        const minAgeDate = new Date(currentDate);
+        minAgeDate.setFullYear(currentDate.getFullYear() - parseInt(dto.minAgeYears, 10));
+        where.purchaseDate.lte = minAgeDate;
+      }
+      if (dto.maxAgeYears) {
+        const maxAgeDate = new Date(currentDate);
+        maxAgeDate.setFullYear(currentDate.getFullYear() - parseInt(dto.maxAgeYears, 10));
+        where.purchaseDate.gte = maxAgeDate;
+      }
+    }
+
+    // Warranty period filter
+    if (dto.warrantyPeriodMonths) {
+      where.warrantyPeriod = parseInt(dto.warrantyPeriodMonths, 10);
+    }
+
+    // Other filters
+    if (dto.departmentId) where.departmentId = dto.departmentId;
+    if (dto.unitId) where.unitId = dto.unitId;
+    if (dto.itItemId) where.itItemId = dto.itItemId;
+    if (dto.deviceType) where.itItem = { deviceType: { equals: dto.deviceType } };
+    if (dto.status) where.status = dto.status;
+    if (dto.lpoReference) where.lpoReference = dto.lpoReference;
+    if (dto.supplierId) where.supplierId = dto.supplierId;
+
+    const inventories = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        itItem: { select: { brand: true, model: true, deviceType: true } },
+        department: { select: { name: true } },
+        unit: { select: { name: true } },
+        user: { select: { name: true } },
+        supplier: { select: { name: true } },
+        desktopDetails: true,
+        laptopDetails: true,
+        printerDetails: true,
+        upsDetails: true,
+        otherDetails: true,
+      },
+      orderBy: { purchaseDate: 'asc' },
+    });
+
+    const currentDate = new Date();
+    const assets = inventories.map((asset) => {
+      const purchaseDate = asset.purchaseDate;
+      const warrantyExpiry = new Date(purchaseDate);
+      warrantyExpiry.setMonth(warrantyExpiry.getMonth() + asset.warrantyPeriod);
+
+      // Determine device-specific details based on deviceType
+      let deviceDetails: Record<string, any> = {};
+      if (asset.desktopDetails) {
+        deviceDetails = {
+          type: 'Desktop',
+          serialNumber: asset.desktopDetails.desktopSerialNumber,
+          processorType: asset.desktopDetails.desktopProcessorType,
+          memorySize: asset.desktopDetails.desktopMemorySize,
+          operatingSystem: asset.desktopDetails.desktopOperatingSystem,
+        };
+      } else if (asset.laptopDetails) {
+        deviceDetails = {
+          type: 'Laptop',
+          serialNumber: asset.laptopDetails.laptopSerialNumber,
+          processorType: asset.laptopDetails.laptopProcessorType,
+          memorySize: asset.laptopDetails.laptopMemorySize,
+          operatingSystem: asset.laptopDetails.laptopOperatingSystem,
+        };
+      } else if (asset.printerDetails) {
+        deviceDetails = {
+          type: 'Printer',
+          serialNumber: asset.printerDetails.printerSerialNumber,
+          tonerNumber: asset.printerDetails.printerTonerNumber,
+        };
+      } else if (asset.upsDetails) {
+        deviceDetails = {
+          type: 'UPS',
+          serialNumber: asset.upsDetails.upsSerialNumber,
+        };
+      } else if (asset.otherDetails) {
+        deviceDetails = {
+          type: asset.otherDetails.deviceType,
+          serialNumber: asset.otherDetails.otherSerialNumber,
+        };
+      }
+
+      return {
+        assetId: asset.assetId,
+        itItemId: asset.itItemId,
+        brand: asset.itItem.brand,
+        model: asset.itItem.model,
+        deviceType: asset.itItem.deviceType,
+        purchaseDate: purchaseDate.toISOString(),
+        ageYears: (currentDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365),
+        warrantyPeriodMonths: asset.warrantyPeriod,
+        warrantyExpiry: warrantyExpiry.toISOString(),
+        daysToWarrantyExpiry: (warrantyExpiry.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24),
+        departmentName: asset.department.name,
+        unitName: asset.unit?.name || 'N/A',
+        userName: asset.user.name,
+        supplierName: asset.supplier?.name || 'N/A',
+        lpoReference: asset.lpoReference || 'N/A',
+        status: asset.status,
+        remarks: asset.remarks,
+        deviceDetails,
+      };
+    });
+
+    const summary = {
+      totalAssets: inventories.length,
+      averageAgeYears: assets.reduce((acc, a) => acc + a.ageYears, 0) / (assets.length || 1),
+      byAgeRange: {
+        lessThan1Year: assets.filter((a) => a.ageYears < 1).length,
+        between1And3Years: assets.filter((a) => a.ageYears >= 1 && a.ageYears < 3).length,
+        between3And5Years: assets.filter((a) => a.ageYears >= 3 && a.ageYears < 5).length,
+        moreThan5Years: assets.filter((a) => a.ageYears >= 5).length,
+      },
+      byStatus: {
+        ACTIVE: assets.filter((a) => a.status === 'ACTIVE').length,
+        INACTIVE: assets.filter((a) => a.status === 'INACTIVE').length,
+        NON_FUNCTIONAL: assets.filter((a) => a.status === 'NON_FUNCTIONAL').length,
+        OBSOLETE: assets.filter((a) => a.status === 'OBSOLETE').length,
+        DISPOSED: assets.filter((a) => a.status === 'DISPOSED').length,
+      },
+      nearingWarrantyExpiry: assets.filter(
+        (a) => a.daysToWarrantyExpiry >= 0 && a.daysToWarrantyExpiry <= 90
+      ).length,
+    };
+
+    return { summary, assets };
+  }
+
+  async getInventoryDeviceDetailsReport(dto: InventoryReportDto) {
+    const where: Prisma.InventoryWhereInput = { deletedAt: null };
+
+    // Device detail filters
+    if (dto.deviceType) {
+      where.itItem = { deviceType: { equals: dto.deviceType } };
+    }
+    if (dto.brand) {
+      where.OR = [
+        { itItem: { brand: { equals: dto.brand } } },
+        { desktopDetails: { desktopBrand: { equals: dto.brand } } },
+        { laptopDetails: { laptopBrand: { equals: dto.brand } } },
+        { printerDetails: { printerBrand: { equals: dto.brand } } },
+        { upsDetails: { upsBrand: { equals: dto.brand } } },
+        { otherDetails: { otherBrand: { equals: dto.brand } } },
+      ];
+    }
+    if (dto.model) {
+      where.OR = where.OR || [];
+      where.OR.push(
+        { itItem: { model: { equals: dto.model } } },
+        { desktopDetails: { desktopModel: { equals: dto.model } } },
+        { laptopDetails: { laptopModel: { equals: dto.model } } },
+        { printerDetails: { printerModel: { equals: dto.model } } },
+        { upsDetails: { upsModel: { equals: dto.model } } },
+        { otherDetails: { otherModel: { equals: dto.model } } }
+      );
+    }
+    if (dto.serialNumber) {
+      where.OR = [
+        { desktopDetails: { desktopSerialNumber: { equals: dto.serialNumber } } },
+        { laptopDetails: { laptopSerialNumber: { equals: dto.serialNumber } } },
+        { printerDetails: { printerSerialNumber: { equals: dto.serialNumber } } },
+        { upsDetails: { upsSerialNumber: { equals: dto.serialNumber } } },
+        { otherDetails: { otherSerialNumber: { equals: dto.serialNumber } } },
+      ];
+    }
+    if (dto.processorType) {
+      where.OR = [
+        { desktopDetails: { desktopProcessorType: { equals: dto.processorType } } },
+        { laptopDetails: { laptopProcessorType: { equals: dto.processorType } } },
+      ];
+    }
+    if (dto.tonerNumber) {
+      where.printerDetails = { printerTonerNumber: { equals: dto.tonerNumber } };
+    }
+    if (dto.status) {
+      where.status = dto.status;
+    }
+    if (dto.departmentId) {
+      where.departmentId = dto.departmentId;
+    }
+    if (dto.unitId) {
+      where.unitId = dto.unitId;
+    }
+    if (dto.itItemId) {
+      where.itItemId = dto.itItemId;
+    }
+    if (dto.lpoReference) {
+      where.lpoReference = dto.lpoReference;
+    }
+    if (dto.supplierId) {
+      where.supplierId = dto.supplierId;
+    }
+
+    const inventories = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        itItem: { select: { brand: true, model: true, deviceType: true } },
+        department: { select: { name: true } },
+        unit: { select: { name: true } },
+        user: { select: { name: true } },
+        supplier: { select: { name: true } },
+        desktopDetails: true,
+        laptopDetails: true,
+        printerDetails: true,
+        upsDetails: true,
+        otherDetails: true,
+      },
+      orderBy: { itItem: { brand: 'asc' } },
+    });
+
+    const assets = inventories.map((asset) => {
+      let deviceDetails: Record<string, any> = {};
+      if (asset.desktopDetails) {
+        deviceDetails = {
+          type: 'Desktop',
+          brand: asset.desktopDetails.desktopBrand,
+          model: asset.desktopDetails.desktopModel,
+          serialNumber: asset.desktopDetails.desktopSerialNumber,
+          processorType: asset.desktopDetails.desktopProcessorType,
+          memorySize: asset.desktopDetails.desktopMemorySize,
+          storageDriveType: asset.desktopDetails.desktopStorageDriveType,
+          storageDriveSize: asset.desktopDetails.desktopStorageDriveSize,
+          operatingSystem: asset.desktopDetails.desktopOperatingSystem,
+          endpointSecurity: asset.desktopDetails.desktopEndpointSecurity,
+          spiceworksMonitoring: asset.desktopDetails.desktopSpiceworksMonitoring,
+        };
+      } else if (asset.laptopDetails) {
+        deviceDetails = {
+          type: 'Laptop',
+          brand: asset.laptopDetails.laptopBrand,
+          model: asset.laptopDetails.laptopModel,
+          serialNumber: asset.laptopDetails.laptopSerialNumber,
+          processorType: asset.laptopDetails.laptopProcessorType,
+          memorySize: asset.laptopDetails.laptopMemorySize,
+          storageDriveType: asset.laptopDetails.laptopStorageDriveType,
+          storageDriveSize: asset.laptopDetails.laptopStorageDriveSize,
+          operatingSystem: asset.laptopDetails.laptopOperatingSystem,
+          endpointSecurity: asset.laptopDetails.laptopEndpointSecurity,
+          spiceworksMonitoring: asset.laptopDetails.laptopSpiceworksMonitoring,
+        };
+      } else if (asset.printerDetails) {
+        deviceDetails = {
+          type: 'Printer',
+          brand: asset.printerDetails.printerBrand,
+          model: asset.printerDetails.printerModel,
+          serialNumber: asset.printerDetails.printerSerialNumber,
+          tonerNumber: asset.printerDetails.printerTonerNumber,
+        };
+      } else if (asset.upsDetails) {
+        deviceDetails = {
+          type: 'UPS',
+          brand: asset.upsDetails.upsBrand,
+          model: asset.upsDetails.upsModel,
+          serialNumber: asset.upsDetails.upsSerialNumber,
+        };
+      } else if (asset.otherDetails) {
+        deviceDetails = {
+          type: asset.otherDetails.deviceType,
+          brand: asset.otherDetails.otherBrand,
+          model: asset.otherDetails.otherModel,
+          serialNumber: asset.otherDetails.otherSerialNumber,
+        };
+      }
+
+      return {
+        assetId: asset.assetId,
+        itItemId: asset.itItemId,
+        brand: asset.itItem.brand,
+        model: asset.itItem.model,
+        deviceType: asset.itItem.deviceType,
+        departmentName: asset.department.name,
+        unitName: asset.unit?.name || 'N/A',
+        userName: asset.user.name,
+        supplierName: asset.supplier?.name || 'N/A',
+        lpoReference: asset.lpoReference || 'N/A',
+        purchaseDate: asset.purchaseDate.toISOString(),
+        warrantyPeriodMonths: asset.warrantyPeriod,
+        status: asset.status,
+        remarks: asset.remarks,
+        deviceDetails,
+      };
+    });
+
+    const summary = {
+      totalAssets: inventories.length,
+      byDeviceType: inventories.reduce((acc, a) => {
+        const type = a.itItem.deviceType || 'Unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      byBrand: inventories.reduce((acc, a) => {
+        const brand = a.itItem.brand || 'Unknown';
+        acc[brand] = (acc[brand] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      byStatus: {
+        ACTIVE: inventories.filter((a) => a.status === 'ACTIVE').length,
+        INACTIVE: inventories.filter((a) => a.status === 'INACTIVE').length,
+        NON_FUNCTIONAL: inventories.filter((a) => a.status === 'NON_FUNCTIONAL').length,
+        OBSOLETE: inventories.filter((a) => a.status === 'OBSOLETE').length,
+        DISPOSED: inventories.filter((a) => a.status === 'DISPOSED').length,
+      },
+      byDepartment: inventories.reduce((acc, a) => {
+        const dept = a.department.name || 'Unassigned';
+        acc[dept] = (acc[dept] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+
+    return { summary, assets };
   }
 }

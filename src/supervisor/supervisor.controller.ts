@@ -4,6 +4,7 @@ import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
 import {
+  InventoryReportDto,
   MaintenanceReportDto,
   OverdueTicketsReportDto,
   RequisitionApprovalDelaysDto,
@@ -105,5 +106,19 @@ export class SupervisorController {
   @Roles('supervisor')
   async getLowStockAlerts(@Query() dto: StockReportDto, @Request() req) {
     return this.supervisorService.getLowStockAlerts(dto);
+  }
+
+   @Get('inventory/device-age')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getInventoryAgeReport(@Query() dto: InventoryReportDto, @Request() req) {
+    return this.supervisorService.getInventoryAgeReport(dto);
+  }
+
+  @Get('inventory/device-details')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor')
+  async getInventoryDeviceDetailsReport(@Query() dto: InventoryReportDto, @Request() req) {
+    return this.supervisorService.getInventoryDeviceDetailsReport(dto);
   }
 }

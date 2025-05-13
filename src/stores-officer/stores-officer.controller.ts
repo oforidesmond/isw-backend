@@ -12,7 +12,7 @@ export class StoresOfficerController {
   // Get all approved requisitions
   @Get('reqs/approved')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer', 'supervisor')
   async getApprovedRequisitions() {
     return this.storesOfficerService.getApprovedRequisitions();
   }
@@ -46,7 +46,7 @@ async issueRequisition(
   //Get IT items
   @Get('it-items')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer', 'supervisor')
   async getAvailableITItems() {
     return this.storesOfficerService.getAvailableITItems();
   }
@@ -76,7 +76,7 @@ async issueRequisition(
   //Get suppliers
   @Get('suppliers')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer','supervisor')
   async getSuppliers() {
     return this.storesOfficerService.getSuppliers();
   }
