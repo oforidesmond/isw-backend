@@ -12,7 +12,7 @@ export class StoresOfficerController {
   // Get all approved requisitions
   @Get('reqs/approved')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer','supervisor')
   async getApprovedRequisitions() {
     return this.storesOfficerService.getApprovedRequisitions();
   }
@@ -25,10 +25,10 @@ export class StoresOfficerController {
   // @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination', example: 1 })
   // @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of records per page', example: 10 })
   async getAllStockReceived(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    // @Query('page') page: number = 1,
+    // @Query('limit') limit: number = 10,
   ) {
-    return this.storesOfficerService.getAllStockReceived(page, limit);
+    return this.storesOfficerService.getAllStockReceived();
   }
 
 // Issue Requisition
@@ -60,7 +60,7 @@ export class StoresOfficerController {
   //Get IT items
   @Get('it-items')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer','supervisor')
   async getAvailableITItems() {
     return this.storesOfficerService.getAvailableITItems();
   }
@@ -76,7 +76,7 @@ export class StoresOfficerController {
   //Get suppliers
   @Get('suppliers')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer')
+  @Roles('stores_officer','supervisor')
   async getSuppliers() {
     return this.storesOfficerService.getSuppliers();
   }

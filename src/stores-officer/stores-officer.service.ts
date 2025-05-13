@@ -42,13 +42,13 @@ export class StoresOfficerService {
     });
   }
 
-  async getAllStockReceived(page: number, limit: number) {
-    const skip = (page - 1) * limit;
+  async getAllStockReceived() {
+    // const skip = (page - 1) * limit;
 
     const [stockReceived, total] = await Promise.all([
       this.prisma.stockReceived.findMany({
-        skip,
-        take: limit,
+        // skip,
+        // take: limit,
         orderBy: { dateReceived: 'desc' },
         include: {
           itItem: { select: { brand: true, model: true } },
@@ -61,12 +61,12 @@ export class StoresOfficerService {
 
     return {
       data: stockReceived,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      // meta: {
+      //   total,
+      //   page,
+      //   limit,
+      //   totalPages: Math.ceil(total / limit),
+      // },
     };
   }
 

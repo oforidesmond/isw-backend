@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsEnum, IsDateString, IsNumberString } from 'class-validator';
-import { IssueType, Priority, RequisitionStatus, Urgency } from '@prisma/client';
+import { IsOptional, IsString, IsEnum, IsDateString, IsNumberString, isEnum } from 'class-validator';
+import { DeviceType, InventoryStatus, IssueType, Priority, RequisitionStatus, Urgency } from '@prisma/client';
 
 export class MaintenanceReportDto {
   @IsOptional()
@@ -129,4 +129,74 @@ export class StockReportDto {
   @IsOptional()
   @IsString()
   issuedById?: string; // For StockIssued report
+}
+
+export class InventoryReportDto {
+  @IsOptional()
+  @IsDateString()
+  startPurchaseDate?: string; // e.g., '2020-01-01'
+
+  @IsOptional()
+  @IsDateString()
+  endPurchaseDate?: string; // e.g., '2023-12-31'
+
+  @IsOptional()
+  @IsNumberString()
+  minAgeYears?: string; // e.g., '3' for assets older than 3 years
+
+  @IsOptional()
+  @IsNumberString()
+  maxAgeYears?: string; // e.g., '5' for assets younger than 5 years
+
+  @IsOptional()
+  @IsNumberString()
+  warrantyPeriodMonths?: string; // e.g., '24' for assets with 2-year warranty
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string; // Filter by unit (e.g., specific office or lab)
+
+  @IsOptional()
+  @IsString()
+  itItemId?: string;
+
+  @IsOptional()
+  @IsEnum(DeviceType)
+  deviceType?: DeviceType; // e.g., 'LAPTOP', 'PRINTER'
+
+  @IsOptional()
+  @IsString()
+  brand?: string; // Filters ITItem.brand or device-specific brand (e.g., desktopBrand)
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  serialNumber?: string; // Filters device-specific serial numbers
+
+  @IsOptional()
+  @IsEnum(InventoryStatus)
+  status?: InventoryStatus; // e.g., 'ACTIVE', 'OBSOLETE'
+
+  @IsOptional()
+  @IsString()
+  processorType?: string; // For laptops/desktops
+
+  @IsOptional()
+  @IsString()
+  tonerNumber?: string; // For printers
+
+  @IsOptional()
+  @IsString()
+  lpoReference?: string;
+
+  @IsOptional()
+  @IsString()
+  supplierId?: string;
 }
