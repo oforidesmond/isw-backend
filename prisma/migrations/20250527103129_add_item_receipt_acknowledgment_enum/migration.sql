@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AuditActionType" ADD VALUE 'ITEM_RECEIPT_ACKNOWLEDGED';

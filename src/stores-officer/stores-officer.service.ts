@@ -16,6 +16,7 @@ interface ExtendedAuditPayload extends AuditPayload {
     emailsQueued: {
       submitter: boolean;
       storesOfficer: boolean;
+      acknowledgmentPrompt: boolean;
     };
   };
 }
@@ -213,7 +214,7 @@ export class StoresOfficerService {
         quantity: data.quantity,
         itemClass: itItem.itemClass,
         inventoryId,
-        emailsQueued: { submitter: false, storesOfficer: false },
+        emailsQueued: { submitter: false, storesOfficer: false, acknowledgmentPrompt: false },
       },
     };
 
@@ -223,20 +224,25 @@ export class StoresOfficerService {
         'send-email',
         {
           to: requisition.staff.email,
-          subject: `Requisition ${requisition.requisitionID} Processed`,
+          subject: `Requisition ${requisition.requisitionID} Processed - Acknowledge Receipt`,
           html: `
             <p>Hello ${requisition.staff.name},</p>
             <p>Your requisition (${requisition.requisitionID}) has been processed and issued.</p>
             <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
+            <p>Please acknowledge receipt of the item(s) in your ISW dashboard to continue making new requisitions.</p>
+
             <p>Thanks,<br>ISW Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
       );
       auditPayload.details.emailsQueued.submitter = true;
+      auditPayload.details.emailsQueued.acknowledgmentPrompt = true;
+
     } catch (error) {
       console.error(`Failed to queue email for ${requisition.staff.email}:`, error.message);
       auditPayload.details.emailsQueued.submitter = false;
+      auditPayload.details.emailsQueued.acknowledgmentPrompt = false;
     }
 
     // Notify stores officer
@@ -267,7 +273,7 @@ export class StoresOfficerService {
       throw new BadRequestException(`Requisition ${requisitionId} processed, but one or more emails failed to queue`);
     }
 
-    return { message: `Requisition ${requisitionId} processed and emails queued`, inventoryId };
+    return { message: `Requisition ${requisitionId} processed and emails queued`, inventoryId, stockIssuedId: stockIssued.id };
   });
 };
 
