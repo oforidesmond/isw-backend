@@ -3,7 +3,7 @@ import { UserService } from './user.service';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
-import { CreateRequisitionDto } from './dto/create-requisition.dto';
+import { AcknowledgeReceiptDto, CreateRequisitionDto } from './dto/create-requisition.dto';
 
 @Controller('user')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,5 +26,23 @@ export class UserController {
   // @Roles('user')
   async getUserRequisitions(@Req() req) {
     return this.userService.getUserRequisitions(req.user.userId, req.ip, req.headers['user-agent']);
+  }
+
+  //Acknowledge receipt of Item
+  @Post('reqs/acknowledge/:stockIssuedId')
+  @UseGuards(JwtAuthGuard)
+  async acknowledgeReceipt(
+    @Param('stockIssuedId') stockIssuedId: string,
+    @Body() dto: AcknowledgeReceiptDto,
+    @Request() req,
+  ) {
+    return this.userService.acknowledgeReceipt(req.user.userId, stockIssuedId, dto, req.ip, req.headers['user-agent']);
+  }
+
+  //Get all pending Acknowledgements
+   @Get('reqs/pending-acknowledgments')
+  @UseGuards(JwtAuthGuard)
+  async getPendingAcknowledgments(@Request() req) {
+    return this.userService.getPendingAcknowledgments(req.user.userId);
   }
 }

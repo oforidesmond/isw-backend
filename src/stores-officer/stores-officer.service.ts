@@ -16,6 +16,7 @@ interface ExtendedAuditPayload extends AuditPayload {
     emailsQueued: {
       submitter: boolean;
       storesOfficer: boolean;
+      acknowledgmentPrompt: boolean;
     };
   };
 }
@@ -185,7 +186,7 @@ export class StoresOfficerService {
           quantity: data.quantity,
           itemClass: itItem.itemClass,
           inventoryId,
-          emailsQueued: { submitter: false, storesOfficer: false },
+          emailsQueued: { submitter: false, storesOfficer: false, acknowledgmentPrompt: false},
         },
       };
 

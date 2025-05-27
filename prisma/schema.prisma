@@ -32,6 +32,7 @@ enum AuditActionType {
   REQUISITION_ITD_APPROVED
   REQUISITION_ITD_DECLINED
   REQUISITION_PROCESSED
+  ITEM_RECEIPT_ACKNOWLEDGED
   // Inventory Events
   INVENTORY_CREATED
   INVENTORY_UPDATED
@@ -199,6 +200,7 @@ model User {
   maintenanceTicketsReturned MaintenanceTicket[] @relation("TechnicianReturned")
   maintenanceTicketsAudited  MaintenanceTicket[] @relation("AuditedBy")
   maintenanceTickets         MaintenanceTicket[] @relation("UserMaintenanceTickets")
+  acknowledgments ItemReceiptAcknowledgment[] @relation("UserAcknowledgments")
 
   // Back-relations for Inventory
   inventories               Inventory[] @relation("UserInventory")
@@ -594,6 +596,7 @@ model StockIssued {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   deletedAt        DateTime?
+  acknowledgment ItemReceiptAcknowledgment?    @relation("StockIssuedAcknowledgment")
 
   @@index([requisitionId])
   @@index([itItemId])
@@ -662,4 +665,21 @@ model StockBatch {
 
   @@index([stockReceivedId])
   @@map("stock_batches")
+}
+
+model ItemReceiptAcknowledgment {
+  id             String      @id @default(uuid())
+  stockIssuedId  String      @unique // Links to the issued item
+  stockIssued    StockIssued @relation("StockIssuedAcknowledgment", fields: [stockIssuedId], references: [id], onDelete: Cascade)
+  userId         String      // The user acknowledging receipt
+  user           User        @relation("UserAcknowledgments", fields: [userId], references: [id])
+  acknowledgedAt DateTime    // When the acknowledgment was made
+  remarks        String?     // Optional comments
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  @@index([stockIssuedId])
+  @@index([userId])
+  @@map("item_receipt_acknowledgments")
 }

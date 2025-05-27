@@ -41,3 +41,9 @@ export class CreateRequisitionDto {
   @IsString()
   staffId: string;
 }
+
+export class AcknowledgeReceiptDto {
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+}

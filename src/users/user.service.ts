@@ -19,6 +19,14 @@ interface ExtendedAuditPayload extends AuditPayload {
   };
 }
 
+interface AcknowledgmentAuditPayload extends AuditPayload {
+  details: {
+    requisitionID: string;
+    itItem: string;
+    quantity: number;
+  };
+}
+
 @Injectable()
 export class UserService {
   constructor(
@@ -50,15 +58,36 @@ export class UserService {
     };
   }
 
-  async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { unitId: true, roomNo: true, email: true, name: true, departmentId: true },
-      });
-      if (!user) throw new NotFoundException(`User ${userId} not found`);
-  
-      // Generate requisitionID using a sequence
+  // create requisition
+async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
+  return this.prisma.$transaction(async (tx) => {
+    // Check for pending acknowledgments
+    const pendingAcknowledgments = await tx.stockIssued.findMany({
+      where: {
+        requisition: { staffId: userId },
+        acknowledgment: null, // No acknowledgment exists
+        deletedAt: null,
+      },
+      include: { itItem: { select: { brand: true, model: true } } },
+    });
+
+    if (pendingAcknowledgments.length > 0) {
+      const pendingItems = pendingAcknowledgments
+        .map((item) => `${item.itItem.brand} ${item.itItem.model} (Qty: ${item.quantityIssued})`)
+        .join(', ');
+      throw new BadRequestException(
+        `Cannot create new requisition. Please acknowledge receipt of: ${pendingItems}`,
+      );
+    }
+
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { unitId: true, roomNo: true, email: true, name: true, departmentId: true },
+    });
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    // Generate requisitionID using a sequence
+
       const year = new Date().getFullYear();
       const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
         Prisma.sql`SELECT nextval('requisition_seq')`,
@@ -268,6 +297,109 @@ export class UserService {
           },
         },
       },
+    });
+  }
+
+   // All pending acknowledgements
+async getPendingAcknowledgments(userId: string) {
+  const pending = await this.prisma.stockIssued.findMany({
+    where: {
+      requisition: { staffId: userId },
+      acknowledgment: null,
+      deletedAt: null,
+    },
+    include: {
+      itItem: { select: { brand: true, model: true, deviceType: true } },
+      requisition: { select: { requisitionID: true } },
+    },
+    orderBy: { issueDate: 'asc' },
+  });
+
+  return pending.map((item) => ({
+    stockIssuedId: item.id,
+    requisitionID: item.requisition.requisitionID,
+    itemName: `${item.itItem.brand} ${item.itItem.model}`,
+    deviceType: item.itItem.deviceType,
+    quantity: item.quantityIssued,
+    issueDate: item.issueDate.toISOString(),
+    disbursementNote: item.disbursementNote,
+    remarks: item.remarks,
+  }));
+}
+
+async acknowledgeReceipt(
+    userId: string,
+    stockIssuedId: string,
+    dto: { remarks?: string },
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const stockIssued = await tx.stockIssued.findUnique({
+        where: { id: stockIssuedId },
+        include: {
+          requisition: { select: { staffId: true, requisitionID: true } },
+          itItem: { select: { brand: true, model: true } },
+          acknowledgment: true,
+        },
+      });
+      if (!stockIssued) throw new NotFoundException(`Stock issuance ${stockIssuedId} not found`);
+      if (stockIssued.deletedAt) throw new BadRequestException(`Stock issuance ${stockIssuedId} is deleted`);
+      if (stockIssued.requisition.staffId !== userId) throw new BadRequestException(`User ${userId} is not authorized to acknowledge this issuance`);
+      if (stockIssued.acknowledgment) throw new BadRequestException(`Stock issuance ${stockIssuedId} already acknowledged`);
+
+      const acknowledgment = await tx.itemReceiptAcknowledgment.create({
+        data: {
+          stockIssuedId,
+          userId,
+          acknowledgedAt: new Date(),
+          remarks: dto.remarks,
+        },
+      });
+
+      const auditPayload: AcknowledgmentAuditPayload = {
+        actionType: 'ITEM_RECEIPT_ACKNOWLEDGED',
+        performedById: userId,
+        affectedUserId: userId,
+        entityType: 'ItemReceiptAcknowledgment',
+        entityId: acknowledgment.id,
+        oldState: null,
+        newState: {
+          stockIssuedId,
+          userId,
+          acknowledgedAt: acknowledgment.acknowledgedAt.toISOString(),
+          remarks: acknowledgment.remarks,
+        },
+        ipAddress,
+        userAgent,
+        details: {
+          requisitionID: stockIssued.requisition.requisitionID,
+          itItem: `${stockIssued.itItem.brand} ${stockIssued.itItem.model}`,
+          quantity: stockIssued.quantityIssued,
+        },
+      };
+
+      await this.auditService.logAction(auditPayload, tx);
+
+      // Notify user of successful acknowledgment
+      // const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+      // if (user) {
+      //   await this.emailQueue.add(
+      //     'send-email',
+      //     {
+      //       to: user.email,
+      //       subject: `Receipt Acknowledged for Requisition ${stockIssued.requisition.requisitionID}`,
+      //       html: `
+      //         <p>Hello ${user.name},</p>
+      //         <p>You have successfully acknowledged receipt of ${stockIssued.itItem.brand} ${stockIssued.itItem.model} (Qty: ${stockIssued.quantityIssued}) for requisition ${stockIssued.requisition.requisitionID}.</p>
+      //         <p>Thanks,<br>ISW Team</p>
+      //       `,
+      //     },
+      //     { attempts: 3, backoff: 5000 },
+      //   );
+      // }
+
+      return { message: `Receipt acknowledged for stock issuance ${stockIssuedId}` };
     });
   }
 }
