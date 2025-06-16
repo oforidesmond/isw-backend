@@ -527,4 +527,98 @@ export class HardwareTechnicianService {
         'N/A',
     }));
   }
+
+  async generateReport(
+    reportType: string,
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      deviceType?: string;
+      status?: string;
+      userId?: string;
+      departmentId?: string;
+      priority?: string;
+      issueType?: string;
+    },
+    technicianId: string,
+  ) {
+    if (reportType !== 'maintenance_tickets') {
+      throw new BadRequestException('Invalid report type. Must be: maintenance_tickets');
+    }
+
+    if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
+      throw new BadRequestException('Invalid startDate format');
+    }
+    if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
+      throw new BadRequestException('Invalid endDate format');
+    }
+    if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
+      throw new BadRequestException('startDate must be before endDate');
+    }
+
+    const where: any = { 
+      deletedAt: null,
+      technicianReceivedById: technicianId,
+    };
+    if (filters.startDate) where.dateLogged = { gte: new Date(filters.startDate) };
+    if (filters.endDate) where.dateLogged = { ...where.dateLogged, lte: new Date(filters.endDate) };
+    if (filters.deviceType) where.inventory = { itItem: { deviceType: filters.deviceType } };
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.departmentId) where.departmentId = filters.departmentId;
+    if (filters.priority) where.priority = filters.priority;
+    if (filters.issueType) where.issueType = filters.issueType;
+    if (filters.status) {
+      if (filters.status === 'OPEN') where.dateResolved = null;
+      if (filters.status === 'RESOLVED') where.dateResolved = { not: null };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceTicket.findMany({
+        where,
+        include: {
+          inventory: { include: { itItem: { select: { brand: true, model: true, deviceType: true } } } },
+          user: { select: { name: true } },
+          department: { select: { name: true } },
+          unit: { select: { name: true } },
+          technicianReceived: { select: { name: true } },
+          technicianReturned: { select: { name: true } },
+        },
+        orderBy: { dateLogged: 'desc' },
+      }),
+      this.prisma.maintenanceTicket.count({ where }),
+    ]);
+
+    const formattedData = data.map((ticket) => ({
+      id: ticket.id,
+      ticketId: ticket.ticketId,
+      assetId: ticket.assetId,
+      brand: ticket.inventory.itItem.brand,
+      model: ticket.inventory.itItem.model,
+      deviceType: ticket.inventory.itItem.deviceType,
+      userId: ticket.userId,
+      userName: ticket.user.name,
+      issueType: ticket.issueType,
+      departmentId: ticket.departmentId,
+      departmentName: ticket.department.name,
+      unitId: ticket.unitId,
+      unitName: ticket.unit?.name || 'None',
+      description: ticket.description,
+      priority: ticket.priority,
+      actionTaken: ticket.actionTaken,
+      technicianReceivedById: ticket.technicianReceivedById,
+      technicianReceivedName: ticket.technicianReceived.name,
+      technicianReturnedById: ticket.technicianReturnedById,
+      technicianReturnedName: ticket.technicianReturned?.name || 'N/A',
+      dateLogged: ticket.dateLogged.toISOString(),
+      dateResolved: ticket.dateResolved?.toISOString(),
+      remarks: ticket.remarks,
+    }));
+
+    return {
+      reportType,
+      filters,
+      data: formattedData,
+      meta: { totalRecords: total, generatedAt: new Date().toISOString() },
+    };
+  }
 }

@@ -73,4 +73,26 @@ export class HardwareTechnicianController {
   async searchDevices(@Query() dto: SearchDevicesDto) {
     return this.hardwareTechnicianService.searchDevices(dto);
   }
+
+   @Get('reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hardware_technician', 'supervisor')
+  async generateReport(
+    @Query('reportType') reportType: string,
+    @Request() req,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('deviceType') deviceType?: string,
+    @Query('status') status?: string,
+    @Query('userId') userId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('priority') priority?: string,
+    @Query('issueType') issueType?: string,
+  ) {
+    return this.hardwareTechnicianService.generateReport(
+      reportType,
+      { startDate, endDate, deviceType, status, userId, departmentId, priority, issueType },
+      req.user.userId,
+    );
+  }
 }
