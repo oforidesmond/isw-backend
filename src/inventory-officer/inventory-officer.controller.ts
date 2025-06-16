@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Request, UseGuards } from '@nestjs/common';
 import { InventoryOfficerService } from './inventory-officer.service';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
@@ -62,5 +62,33 @@ export class InventoryOfficerController {
       req.ip,
       req.headers['user-agent'],
     );
+  }
+
+  @Get('reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('inventory_officer', 'supervisor')
+  async generateReport(
+    @Query('reportType') reportType: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('deviceType') deviceType?: string,
+    @Query('status') status?: string,
+    @Query('userId') userId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('unitId') unitId?: string,
+    @Query('serialNumber') serialNumber?: string,
+    @Query('warrantyPeriod') warrantyPeriod?: number,
+  ) {
+    return this.inventoryOfficerService.generateReport(reportType, {
+      startDate,
+      endDate,
+      deviceType,
+      status,
+      userId,
+      departmentId,
+      unitId,
+      serialNumber,
+      warrantyPeriod,
+    });
   }
 }
