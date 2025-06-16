@@ -409,4 +409,119 @@ export class StoresOfficerService {
       orderBy: { name: 'asc' },
     });
   }
+
+  async generateReport(
+    reportType: string,
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      itemClass?: string;
+      deviceType?: string;
+      status?: string;
+      itItemId?: string;
+    },
+  ) {
+    // Validate reportType
+    const validReportTypes = ['stock_received', 'stock_issued', 'requisitions', 'inventory'];
+    if (!validReportTypes.includes(reportType)) {
+      throw new BadRequestException(`Invalid report type. Must be one of: ${validReportTypes.join(', ')}`);
+    }
+
+    // Validate dates
+    if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
+      throw new BadRequestException('Invalid startDate format');
+    }
+    if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
+      throw new BadRequestException('Invalid endDate format');
+    }
+    if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
+      throw new BadRequestException('startDate must be before endDate');
+    }
+
+    // Build base query filters
+    const where: any = { deletedAt: null };
+    if (filters.startDate) where.createdAt = { gte: new Date(filters.startDate) };
+    if (filters.endDate) where.createdAt = { ...where.createdAt, lte: new Date(filters.endDate) };
+    if (filters.itItemId) where.itItemId = filters.itItemId;
+    if (filters.itemClass) where.itItem = { itemClass: filters.itemClass };
+    if (filters.deviceType) where.itItem = { ...where.itItem, deviceType: filters.deviceType };
+    if (filters.status && reportType === 'requisitions') where.status = filters.status;
+    if (filters.status && reportType === 'inventory') where.status = filters.status;
+
+    let data: any;
+    let total: number;
+
+    // Query based on reportType
+    switch (reportType) {
+      case 'stock_received':
+        [data, total] = await Promise.all([
+          this.prisma.stockReceived.findMany({
+            where,
+            include: {
+              itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
+              supplier: { select: { name: true } },
+              receivedBy: { select: { name: true } },
+            },
+            orderBy: { dateReceived: 'desc' },
+          }),
+          this.prisma.stockReceived.count({ where }),
+        ]);
+        break;
+
+      case 'stock_issued':
+        [data, total] = await Promise.all([
+          this.prisma.stockIssued.findMany({
+            where,
+            include: {
+              itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
+              issuedBy: { select: { name: true } },
+              requisition: { select: { staff: { select: { name: true } } } },
+            },
+            orderBy: { issueDate: 'desc' },
+    }),
+          this.prisma.stockIssued.count({ where }),
+        ]);
+        break;
+
+      case 'requisitions':
+        [data, total] = await Promise.all([
+          this.prisma.requisition.findMany({
+            where,
+            include: {
+              itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
+              staff: { select: { name: true, email: true } },
+              issuedBy: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+    }),
+          this.prisma.requisition.count({ where }),
+        ]);
+        break;
+
+      case 'inventory':
+        [data, total] = await Promise.all([
+          this.prisma.inventory.findMany({
+            where,
+            include: {
+              itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
+              user: { select: { name: true } },
+              department: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+    }),
+          this.prisma.inventory.count({ where }),
+        ]);
+        break;
+
+      default:
+        throw new BadRequestException('Unsupported report type');
+    }
+
+    return {
+      reportType,
+      filters,
+      data,
+      meta: { totalRecords: total, generatedAt: new Date().toISOString() },
+    };
+  }
 }

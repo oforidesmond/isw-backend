@@ -80,4 +80,26 @@ export class StoresOfficerController {
   async getSuppliers() {
     return this.storesOfficerService.getSuppliers();
   }
+
+   @Get('reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('stores_officer', 'supervisor')
+  async generateReport(
+    @Query('reportType') reportType: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('itemClass') itemClass?: string,
+    @Query('deviceType') deviceType?: string,
+    @Query('status') status?: string,
+    @Query('itItemId') itItemId?: string,
+  ) {
+    return this.storesOfficerService.generateReport(reportType, {
+      startDate,
+      endDate,
+      itemClass,
+      deviceType,
+      status,
+      itItemId,
+    });
+  }
 }
