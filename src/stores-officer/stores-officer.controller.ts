@@ -100,6 +100,7 @@ async issueRequisition(
       itemClass,
       deviceType,
       status,
+      reqStatus,
       itItemId,
     });
   }
