@@ -91,6 +91,7 @@ export class StoresOfficerController {
     @Query('itemClass') itemClass?: string,
     @Query('deviceType') deviceType?: string,
     @Query('status') status?: string,
+    @Query('reqStatus') reqStatus?: string,
     @Query('itItemId') itItemId?: string,
   ) {
     return this.storesOfficerService.generateReport(reportType, {
@@ -99,6 +100,7 @@ export class StoresOfficerController {
       itemClass,
       deviceType,
       status,
+      reqStatus,
       itItemId,
     });
   }
