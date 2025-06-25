@@ -413,6 +413,7 @@ async getAllStockReceived() {
       itemClass?: string;
       deviceType?: string;
       status?: string;
+      reqStatus?: string;
       itItemId?: string;
     },
   ) {
@@ -440,7 +441,7 @@ async getAllStockReceived() {
     if (filters.itItemId) where.itItemId = filters.itItemId;
     if (filters.itemClass) where.itItem = { itemClass: filters.itemClass };
     if (filters.deviceType) where.itItem = { ...where.itItem, deviceType: filters.deviceType };
-    if (filters.status && reportType === 'requisitions') where.status = filters.status;
+    if (filters.reqStatus && reportType === 'requisitions') where.status = filters.reqStatus;
     if (filters.status && reportType === 'inventory') where.status = filters.status;
 
     let data: any;
