@@ -201,7 +201,7 @@ async updateRolePermissions(
     // Get all departments
   @Get('departments')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'supervisor')
+  @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
   async getAllDepartments(@Query('includeUnits') includeUnits?: string) {
     return this.userManagementService.getAllDepartments(includeUnits === 'true');
   }
