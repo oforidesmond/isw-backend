@@ -77,7 +77,7 @@ export class InventoryOfficerController {
     @Query('departmentId') departmentId?: string,
     @Query('unitId') unitId?: string,
     @Query('serialNumber') serialNumber?: string,
-    @Query('warrantyPeriod') warrantyPeriod?: number,
+    @Query('warrantyPeriod') warrantyPeriod?: string | number,
   ) {
     return this.inventoryOfficerService.generateReport(reportType, {
       startDate,

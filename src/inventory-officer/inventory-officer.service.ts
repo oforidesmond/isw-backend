@@ -540,12 +540,16 @@ async getUsers() {
       departmentId?: string;
       unitId?: string;
       serialNumber?: string;
-      warrantyPeriod?: number;
+      warrantyPeriod?: string | number;
     },
   ) {
     if (reportType !== 'inventory') {
       throw new BadRequestException('Invalid report type. Must be: inventory');
     }
+
+    if (typeof filters.warrantyPeriod === 'string') {
+    filters.warrantyPeriod = parseInt(filters.warrantyPeriod, 10);
+  }
 
     if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
       throw new BadRequestException('Invalid startDate format');
