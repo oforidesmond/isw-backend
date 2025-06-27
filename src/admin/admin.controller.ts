@@ -39,7 +39,7 @@ export class AdminController {
   //get all active users
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
   async getAllUsers() {
     return this.userQueryService.getAllUsers();
   }
@@ -185,7 +185,7 @@ async updateRolePermissions(
   // Get Suppliers
   @Get('suppliers')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
   async getSuppliers() {
     return this.SuppliersService.getSuppliers();
   }
@@ -193,7 +193,7 @@ async updateRolePermissions(
    //Get IT items
    @Get('it-items')
    @UseGuards(JwtAuthGuard, RolesGuard)
-   @Roles('admin','supervisor')
+   @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
    async getAvailableITItems() {
      return this.adminITItemsService.getAvailableITItems();
    }
