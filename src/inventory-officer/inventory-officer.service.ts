@@ -85,7 +85,7 @@ export class InventoryOfficerService {
       include: {
         itItem: { select: { brand: true, model: true, deviceType: true } },
         user: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, location: true } },
         unit: { select: { name: true } },
         laptopDetails: true,
         desktopDetails: true,
@@ -112,6 +112,7 @@ export class InventoryOfficerService {
           select: {
             id: true,
             name: true,
+            location: true,
           },
         },
         unitId: true,

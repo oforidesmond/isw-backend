@@ -395,7 +395,7 @@ export class HardwareTechnicianService {
       include: {
         inventory: { include: { itItem: { select: { brand: true, model: true } } } },
         user: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, location: true } },
         unit: { select: { name: true } },
         technicianReceived: { select: { name: true } },
         technicianReturned: { select: { name: true } },
@@ -414,6 +414,7 @@ export class HardwareTechnicianService {
       issueType: ticket.issueType,
       departmentId: ticket.departmentId,
       departmentName: ticket.department.name,
+      departmentLocation: ticket.department.location,
       unitId: ticket.unitId,
       unitName: ticket.unit?.name || 'None',
       description: ticket.description,
