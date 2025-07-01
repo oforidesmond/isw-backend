@@ -40,6 +40,7 @@ export class HardwareTechnicianService {
           select: {
             id: true,
             name: true,
+            location: true,
           },
         },
         unitId: true,
@@ -268,7 +269,7 @@ export class HardwareTechnicianService {
       include: {
         itItem: { select: { brand: true, model: true, deviceType: true } },
         user: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, location: true } },
         unit: { select: { name: true } },
         laptopDetails: true,
         desktopDetails: true,
@@ -294,7 +295,7 @@ export class HardwareTechnicianService {
       include: {
         itItem: { select: { brand: true, model: true, deviceType: true } },
         user: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, location: true } },
         unit: { select: { name: true } },
         laptopDetails: true,
         desktopDetails: true,
@@ -464,7 +465,7 @@ export class HardwareTechnicianService {
       include: {
         inventory: { include: { itItem: { select: { brand: true, model: true } } } },
         user: { select: { name: true } },
-        department: { select: { name: true } },
+        department: { select: { name: true, location: true } },
         unit: { select: { name: true } },
         technicianReceived: { select: { name: true } },
         technicianReturned: { select: { name: true } },
@@ -483,6 +484,7 @@ export class HardwareTechnicianService {
       issueType: ticket.issueType,
       departmentId: ticket.departmentId,
       departmentName: ticket.department.name,
+      departmentLocation: ticket.department.location,
       unitId: ticket.unitId,
       unitName: ticket.unit?.name || 'None',
       description: ticket.description,
@@ -548,7 +550,7 @@ export class HardwareTechnicianService {
         include: {
           inventory: { include: { itItem: { select: { brand: true, model: true, deviceType: true } } } },
           user: { select: { name: true } },
-          department: { select: { name: true } },
+          department: { select: { name: true, location: true } },
           unit: { select: { name: true } },
           technicianReceived: { select: { name: true } },
           technicianReturned: { select: { name: true } },
@@ -570,6 +572,7 @@ export class HardwareTechnicianService {
       issueType: ticket.issueType,
       departmentId: ticket.departmentId,
       departmentName: ticket.department.name,
+       departmentLocation: ticket.department.location,
       unitId: ticket.unitId,
       unitName: ticket.unit?.name || 'None',
       description: ticket.description,
