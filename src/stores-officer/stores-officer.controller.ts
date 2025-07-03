@@ -3,11 +3,19 @@ import { StoresOfficerService } from './stores-officer.service';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
-import { CreateStockReceivedDto } from './dto/create-stock-received.dto';
+import { CreateStockReceivedDto, StockLevelsFilterDto } from './dto/create-stock-received.dto';
 
 @Controller('stores')
 export class StoresOfficerController {
   constructor(private readonly storesOfficerService: StoresOfficerService) {}
+
+   // Get all stock levels
+  @Get('stock')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('stores_officer', 'supervisor', 'admin')
+  async getStockLevels(@Query() filters: StockLevelsFilterDto) {
+    return this.storesOfficerService.getStockLevels(filters);
+  }
 
   // Get all approved requisitions
   @Get('reqs/approved')
