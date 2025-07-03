@@ -1,9 +1,11 @@
+import { DeviceType } from '@prisma/client';
 import {
   IsString,
   IsInt,
   IsOptional,
   Min,
   IsDateString,
+  IsEnum,
 } from 'class-validator';
 
 export class CreateStockReceivedDto {
@@ -59,4 +61,39 @@ export class CreateSupplierDto {
   @IsString()
   @IsOptional()
   remarks?: string;
+}
+
+// DTO for filtering stock levels
+export class StockLevelsFilterDto {
+  @IsOptional()
+  @IsString()
+  brand?: string; // e.g., "Dell"
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsEnum(DeviceType, { message: "deviceType must be one of: LAPTOP, DESKTOP, PRINTER, UPS, OTHER" })
+  deviceType?: DeviceType; // Use DeviceType enum directly
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  minQuantity?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  maxQuantity?: number;
+
+  // @IsOptional()
+  // @IsInt()
+  // @Min(1)
+  // page?: number = 1;
+
+  // @IsOptional()
+  // @IsInt()
+  // @Min(1)
+  // limit?: number = 10;
 }
