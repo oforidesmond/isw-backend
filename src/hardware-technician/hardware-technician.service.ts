@@ -366,9 +366,12 @@ export class HardwareTechnicianService {
   async getTickets(technicianId: string, dto: FilterTicketsDto) {
     const where: Prisma.MaintenanceTicketWhereInput = {
       deletedAt: null,
-      technicianReceivedById: technicianId,
+      // technicianReceivedById: technicianId,
     };
 
+      if (dto.technicianReceivedById) {
+    where.technicianReceivedById = dto.technicianReceivedById;
+  }
     if (dto.priority) where.priority = dto.priority;
     if (dto.issueType) where.issueType = dto.issueType;
     if (dto.technicianReceivedById) where.technicianReceivedById = dto.technicianReceivedById;
@@ -529,6 +532,7 @@ export class HardwareTechnicianService {
     }));
   }
 
+ 
   async generateReport(
     reportType: string,
     filters: {
@@ -540,6 +544,7 @@ export class HardwareTechnicianService {
       departmentId?: string;
       priority?: string;
       issueType?: string;
+      technicianReceivedById?: string; 
     },
     technicianId: string,
   ) {
@@ -559,8 +564,11 @@ export class HardwareTechnicianService {
 
     const where: any = { 
       deletedAt: null,
-      technicianReceivedById: technicianId,
+      // technicianReceivedById: technicianId,
     };
+     if (filters.technicianReceivedById) {
+    where.technicianReceivedById = filters.technicianReceivedById;
+  }
     if (filters.startDate) where.dateLogged = { gte: new Date(filters.startDate) };
     if (filters.endDate) where.dateLogged = { ...where.dateLogged, lte: new Date(filters.endDate) };
     if (filters.deviceType) where.inventory = { itItem: { deviceType: filters.deviceType } };
@@ -579,7 +587,7 @@ export class HardwareTechnicianService {
         include: {
           inventory: { include: { itItem: { select: { brand: true, model: true, deviceType: true } } } },
           user: { select: { name: true } },
-          department: { select: { name: true } },
+          department: { select: { name: true, location: true } },
           unit: { select: { name: true } },
           technicianReceived: { select: { name: true } },
           technicianReturned: { select: { name: true } },
@@ -601,6 +609,7 @@ export class HardwareTechnicianService {
       issueType: ticket.issueType,
       departmentId: ticket.departmentId,
       departmentName: ticket.department.name,
+       departmentLocation: ticket.department.location,
       unitId: ticket.unitId,
       unitName: ticket.unit?.name || 'None',
       description: ticket.description,
