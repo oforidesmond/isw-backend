@@ -531,114 +531,131 @@ export class InventoryOfficerService {
   }
 
   async generateReport(
-    reportType: string,
-    filters: {
-      startDate?: string;
-      endDate?: string;
-      deviceType?: string;
-      status?: string;
-      userId?: string;
-      departmentId?: string;
-      unitId?: string;
-      serialNumber?: string;
-      warrantyPeriod?: string | number;
-    },
-  ) {
-    if (reportType !== 'inventory') {
-      throw new BadRequestException('Invalid report type. Must be: inventory');
-    }
-    if (typeof filters.warrantyPeriod === 'string') {
-    filters.warrantyPeriod = parseInt(filters.warrantyPeriod, 10);
-    }
-    if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
-      throw new BadRequestException('Invalid startDate format');
-    }
-    if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
-      throw new BadRequestException('Invalid endDate format');
-    }
-    if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
-      throw new BadRequestException('startDate must be before endDate');
-    }
-
-    const where: any = { 
-      deletedAt: null,
-      itItem: { itemClass: 'FIXED_ASSET' },
-    };
-    if (filters.startDate) where.purchaseDate = { gte: new Date(filters.startDate) };
-    if (filters.endDate) where.purchaseDate = { ...where.purchaseDate, lte: new Date(filters.endDate) };
-    if (filters.deviceType) where.itItem = { ...where.itItem, deviceType: filters.deviceType };
-    if (filters.status) where.status = filters.status;
-    if (filters.userId) where.userId = filters.userId;
-    if (filters.departmentId) where.departmentId = filters.departmentId;
-    if (filters.unitId) where.unitId = filters.unitId;
-    if (filters.warrantyPeriod) where.warrantyPeriod = filters.warrantyPeriod;
-    if (filters.serialNumber) {
-      where.OR = [
-        { laptopDetails: { laptopSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
-        { desktopDetails: { desktopSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
-        { printerDetails: { printerSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
-        { upsDetails: { upsSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
-        { otherDetails: { otherSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
-      ];
-    }
-
-    const [data, total] = await Promise.all([
-      this.prisma.inventory.findMany({
-        where,
-        include: {
-          itItem: { select: { brand: true, model: true, deviceType: true } },
-          user: { select: { name: true, email: true } },
-          department: { select: { name: true } },
-          unit: { select: { name: true } },
-          laptopDetails: true,
-          desktopDetails: true,
-          printerDetails: true,
-          upsDetails: true,
-          otherDetails: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.inventory.count({ where }),
-    ]);
-
-    const formattedData = data.map((item) => ({
-      id: item.id,
-      assetId: item.assetId,
-      brand: item.itItem.brand,
-      model: item.itItem.model,
-      deviceType: item.itItem.deviceType,
-      userId: item.userId,
-      userName: item.user?.name || 'Unassigned',
-      userEmail: item.user?.email || 'N/A',
-      departmentId: item.departmentId,
-      departmentName: item.department?.name || 'None',
-      unitId: item.unitId,
-      unitName: item.unit?.name || 'None',
-      status: item.status,
-      purchaseDate: item.purchaseDate.toISOString(),
-      warrantyPeriod: item.warrantyPeriod,
-      serialNumber:
-        item.laptopDetails?.laptopSerialNumber ||
-        item.desktopDetails?.desktopSerialNumber ||
-        item.printerDetails?.printerSerialNumber ||
-        item.upsDetails?.upsSerialNumber ||
-        item.otherDetails?.otherSerialNumber ||
-        'N/A',
-      details: {
-        laptop: item.laptopDetails || null,
-        desktop: item.desktopDetails || null,
-        printer: item.printerDetails || null,
-        ups: item.upsDetails || null,
-        other: item.otherDetails || null,
-      },
-    }));
-
-    return {
-      reportType,
-      filters,
-      data: formattedData,
-      meta: { totalRecords: total, generatedAt: new Date().toISOString() },
-    };
+  reportType: string,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    deviceType?: string;
+    status?: string;
+    userId?: string;
+    departmentId?: string;
+    unitId?: string;
+    serialNumber?: string;
+    warrantyPeriod?: string | number;
+    brand?: string;
+    model?: string;
+  },
+) {
+  if (reportType !== 'inventory') {
+    throw new BadRequestException('Invalid report type. Must be: inventory');
   }
 
+  // Convert warrantyPeriod to number if it's a string
+  if (typeof filters.warrantyPeriod === 'string') {
+    const parsedWarranty = parseInt(filters.warrantyPeriod, 10);
+    if (isNaN(parsedWarranty)) {
+      throw new BadRequestException('Invalid warrantyPeriod format');
+    }
+    filters.warrantyPeriod = parsedWarranty;
+  }
+
+  // Validate dates
+  if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
+    throw new BadRequestException('Invalid startDate format');
+  }
+  if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
+    throw new BadRequestException('Invalid endDate format');
+  }
+  if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
+    throw new BadRequestException('startDate must be before endDate');
+  }
+
+  // Build where clause
+  const where: any = {
+    deletedAt: null,
+    itItem: { itemClass: 'FIXED_ASSET' },
+  };
+  if (filters.startDate) where.purchaseDate = { gte: new Date(filters.startDate) };
+  if (filters.endDate) where.purchaseDate = { ...where.purchaseDate, lte: new Date(filters.endDate) };
+  if (filters.deviceType) where.itItem = { ...where.itItem, deviceType: filters.deviceType };
+  if (filters.status) where.status = filters.status;
+  if (filters.userId) where.userId = filters.userId;
+  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.unitId) where.unitId = filters.unitId;
+  if (filters.warrantyPeriod) where.warrantyPeriod = filters.warrantyPeriod;
+  if (filters.brand) where.itItem = { ...where.itItem, brand: { contains: filters.brand, mode: 'insensitive' } };
+  if (filters.model) where.itItem = { ...where.itItem, model: { contains: filters.model, mode: 'insensitive' } };
+  if (filters.serialNumber) {
+    where.OR = [
+      { laptopDetails: { laptopSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
+      { desktopDetails: { desktopSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
+      { printerDetails: { printerSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
+      { upsDetails: { upsSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
+      { otherDetails: { otherSerialNumber: { contains: filters.serialNumber, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [data, total] = await Promise.all([
+    this.prisma.inventory.findMany({
+      where,
+      include: {
+        itItem: { select: { brand: true, model: true, deviceType: true } },
+        user: { select: { name: true, email: true } },
+        department: { select: { name: true } },
+        unit: { select: { name: true } },
+        laptopDetails: true,
+        desktopDetails: true,
+        printerDetails: true,
+        upsDetails: true,
+        otherDetails: true,
+        supplier: { select: { name: true, supplierID: true } },
+        stockReceived: { select: { lpoReference: true, voucherNumber: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    this.prisma.inventory.count({ where }),
+  ]);
+
+  const formattedData = data.map((item) => ({
+    id: item.id,
+    assetId: item.assetId,
+    brand: item.itItem.brand,
+    model: item.itItem.model,
+    deviceType: item.itItem.deviceType,
+    userId: item.userId,
+    userName: item.user?.name || 'Unassigned',
+    userEmail: item.user?.email || 'N/A',
+    departmentId: item.departmentId,
+    departmentName: item.department?.name || 'None',
+    unitId: item.unitId,
+    unitName: item.unit?.name || 'None',
+    status: item.status,
+    purchaseDate: item.purchaseDate.toISOString(),
+    warrantyPeriod: item.warrantyPeriod,
+    serialNumber:
+      item.laptopDetails?.laptopSerialNumber ||
+      item.desktopDetails?.desktopSerialNumber ||
+      item.printerDetails?.printerSerialNumber ||
+      item.upsDetails?.upsSerialNumber ||
+      item.otherDetails?.otherSerialNumber ||
+      'N/A',
+    supplier: item.supplier ? { name: item.supplier.name, supplierID: item.supplier.supplierID } : null,
+    lpoReference: item.stockReceived?.lpoReference || null,
+    voucherNumber: item.stockReceived?.voucherNumber || null,
+    details: {
+      laptop: item.laptopDetails || null,
+      desktop: item.desktopDetails || null,
+      printer: item.printerDetails || null,
+      ups: item.upsDetails || null,
+      other: item.otherDetails || null,
+    },
+  }));
+
+  return {
+    reportType,
+    filters,
+    data: formattedData,
+    meta: { totalRecords: total, generatedAt: new Date().toISOString() },
+    };
+  }
 }
