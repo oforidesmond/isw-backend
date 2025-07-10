@@ -90,26 +90,42 @@ export class StoresOfficerController {
   }
 
    @Get('reports')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('stores_officer', 'supervisor')
-  async generateReport(
-    @Query('reportType') reportType: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('itemClass') itemClass?: string,
-    @Query('deviceType') deviceType?: string,
-    @Query('status') status?: string,
-    @Query('reqStatus') reqStatus?: string,
-    @Query('itItemId') itItemId?: string,
-  ) {
-    return this.storesOfficerService.generateReport(reportType, {
-      startDate,
-      endDate,
-      itemClass,
-      deviceType,
-      status,
-      reqStatus,
-      itItemId,
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('stores_officer', 'supervisor')
+async generateReport(
+  @Query('reportType') reportType: string,
+  @Query('startDate') startDate?: string,
+  @Query('endDate') endDate?: string,
+  @Query('itemClass') itemClass?: string,
+  @Query('deviceType') deviceType?: string,
+  @Query('status') status?: string,
+  @Query('reqStatus') reqStatus?: string,
+  @Query('itItemId') itItemId?: string,
+  @Query('brand') brand?: string,
+  @Query('model') model?: string,
+  @Query('supplierId') supplierId?: string,
+  @Query('lpoReference') lpoReference?: string,
+  @Query('voucherNumber') voucherNumber?: string,
+  @Query('departmentId') departmentId?: string,
+  @Query('minQuantity') minQuantity?: string,
+  @Query('maxQuantity') maxQuantity?: string,
+) {
+  return this.storesOfficerService.generateReport(reportType, {
+    startDate,
+    endDate,
+    itemClass,
+    deviceType,
+    status,
+    reqStatus,
+    itItemId,
+    brand,
+    model,
+    supplierId,
+    lpoReference,
+    voucherNumber,
+    departmentId,
+    minQuantity: minQuantity ? parseInt(minQuantity) : undefined,
+    maxQuantity: maxQuantity ? parseInt(maxQuantity) : undefined,
     });
   }
 }
