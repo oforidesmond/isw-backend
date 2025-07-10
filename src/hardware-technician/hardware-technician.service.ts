@@ -504,101 +504,117 @@ export class HardwareTechnicianService {
   }
 
   async generateReport(
-    reportType: string,
-    filters: {
-      startDate?: string;
-      endDate?: string;
-      deviceType?: string;
-      status?: string;
-      userId?: string;
-      departmentId?: string;
-      priority?: string;
-      issueType?: string;
-      technicianReceivedById?: string; 
-    },
-    technicianId: string,
-  ) {
-    if (reportType !== 'maintenance_tickets') {
-      throw new BadRequestException('Invalid report type. Must be: maintenance_tickets');
-    }
-
-    if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
-      throw new BadRequestException('Invalid startDate format');
-    }
-    if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
-      throw new BadRequestException('Invalid endDate format');
-    }
-    if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
-      throw new BadRequestException('startDate must be before endDate');
-    }
-
-    const where: any = { 
-      deletedAt: null,
-      // technicianReceivedById: technicianId,
-    };
-     if (filters.technicianReceivedById) {
-    where.technicianReceivedById = filters.technicianReceivedById;
+  reportType: string,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    deviceType?: string;
+    status?: string;
+    userId?: string;
+    departmentId?: string;
+    priority?: string;
+    issueType?: string;
+    brand?: string;
+    model?: string;
+    technicianReceivedById?: string;
+    technicianReturnedById?: string;
+  },
+  technicianId: string,
+) {
+  if (reportType !== 'maintenance_tickets') {
+    throw new BadRequestException('Invalid report type. Must be: maintenance_tickets');
   }
-    if (filters.startDate) where.dateLogged = { gte: new Date(filters.startDate) };
-    if (filters.endDate) where.dateLogged = { ...where.dateLogged, lte: new Date(filters.endDate) };
-    if (filters.deviceType) where.inventory = { itItem: { deviceType: filters.deviceType } };
-    if (filters.userId) where.userId = filters.userId;
-    if (filters.departmentId) where.departmentId = filters.departmentId;
-    if (filters.priority) where.priority = filters.priority;
-    if (filters.issueType) where.issueType = filters.issueType;
-    if (filters.status) {
-      if (filters.status === 'OPEN') where.dateResolved = null;
-      if (filters.status === 'RESOLVED') where.dateResolved = { not: null };
-    }
 
-    const [data, total] = await Promise.all([
-      this.prisma.maintenanceTicket.findMany({
-        where,
-        include: {
-          inventory: { include: { itItem: { select: { brand: true, model: true, deviceType: true } } } },
-          user: { select: { name: true } },
-          department: { select: { name: true, location: true } },
-          unit: { select: { name: true } },
-          technicianReceived: { select: { name: true } },
-          technicianReturned: { select: { name: true } },
+  // Validate dates
+  if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
+    throw new BadRequestException('Invalid startDate format');
+  }
+  if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
+    throw new BadRequestException('Invalid endDate format');
+  }
+  if (filters.startDate && filters.endDate && new Date(filters.startDate) > new Date(filters.endDate)) {
+    throw new BadRequestException('startDate must be before endDate');
+  }
+
+  // Build where clause
+  const where: any = {
+    deletedAt: null,
+    // Optionally restrict to tickets received by the current technician
+    // technicianReceivedById: technicianId,
+  };
+  if (filters.startDate) where.dateLogged = { gte: new Date(filters.startDate) };
+  if (filters.endDate) where.dateLogged = { ...where.dateLogged, lte: new Date(filters.endDate) };
+  if (filters.deviceType) where.inventory = { itItem: { deviceType: filters.deviceType } };
+  if (filters.brand) where.inventory = { ...where.inventory, itItem: { ...where.inventory?.itItem, brand: { contains: filters.brand, mode: 'insensitive' } } };
+  if (filters.model) where.inventory = { ...where.inventory, itItem: { ...where.inventory?.itItem, model: { contains: filters.model, mode: 'insensitive' } } };
+  if (filters.userId) where.userId = filters.userId;
+  if (filters.departmentId) where.departmentId = filters.departmentId;
+  if (filters.priority) where.priority = filters.priority;
+  if (filters.issueType) where.issueType = filters.issueType;
+  if (filters.technicianReceivedById) where.technicianReceivedById = filters.technicianReceivedById;
+  if (filters.technicianReturnedById) where.technicianReturnedById = filters.technicianReturnedById;
+  if (filters.status) {
+    if (filters.status === 'OPEN') where.dateResolved = null;
+    if (filters.status === 'RESOLVED') where.dateResolved = { not: null };
+  }
+
+  const [data, total] = await Promise.all([
+    this.prisma.maintenanceTicket.findMany({
+      where,
+      include: {
+        inventory: {
+          include: {
+            itItem: { select: { brand: true, model: true, deviceType: true } },
+            supplier: { select: { name: true, supplierID: true } },
+            stockReceived: { select: { lpoReference: true, voucherNumber: true } },
+          },
         },
-        orderBy: { dateLogged: 'desc' },
-      }),
-      this.prisma.maintenanceTicket.count({ where }),
-    ]);
+        user: { select: { name: true } },
+        department: { select: { name: true, location: true } },
+        unit: { select: { name: true } },
+        technicianReceived: { select: { name: true } },
+        technicianReturned: { select: { name: true } },
+      },
+      orderBy: { dateLogged: 'desc' },
+    }),
+    this.prisma.maintenanceTicket.count({ where }),
+  ]);
 
-    const formattedData = data.map((ticket) => ({
-      id: ticket.id,
-      ticketId: ticket.ticketId,
-      assetId: ticket.assetId,
-      brand: ticket.inventory.itItem.brand,
-      model: ticket.inventory.itItem.model,
-      deviceType: ticket.inventory.itItem.deviceType,
-      userId: ticket.userId,
-      userName: ticket.user.name,
-      issueType: ticket.issueType,
-      departmentId: ticket.departmentId,
-      departmentName: ticket.department.name,
-       departmentLocation: ticket.department.location,
-      unitId: ticket.unitId,
-      unitName: ticket.unit?.name || 'None',
-      description: ticket.description,
-      priority: ticket.priority,
-      actionTaken: ticket.actionTaken,
-      technicianReceivedById: ticket.technicianReceivedById,
-      technicianReceivedName: ticket.technicianReceived.name,
-      technicianReturnedById: ticket.technicianReturnedById,
-      technicianReturnedName: ticket.technicianReturned?.name || 'N/A',
-      dateLogged: ticket.dateLogged.toISOString(),
-      dateResolved: ticket.dateResolved?.toISOString(),
-      remarks: ticket.remarks,
-    }));
+  const formattedData = data.map((ticket) => ({
+    id: ticket.id,
+    ticketId: ticket.ticketId,
+    assetId: ticket.assetId,
+    brand: ticket.inventory.itItem.brand,
+    model: ticket.inventory.itItem.model,
+    deviceType: ticket.inventory.itItem.deviceType,
+    userId: ticket.userId,
+    userName: ticket.user.name,
+    issueType: ticket.issueType,
+    departmentId: ticket.departmentId,
+    departmentName: ticket.department.name,
+    departmentLocation: ticket.department.location,
+    unitId: ticket.unitId,
+    unitName: ticket.unit?.name || 'None',
+    description: ticket.description,
+    priority: ticket.priority,
+    actionTaken: ticket.actionTaken,
+    technicianReceivedById: ticket.technicianReceivedById,
+    technicianReceivedName: ticket.technicianReceived.name,
+    technicianReturnedById: ticket.technicianReturnedById,
+    technicianReturnedName: ticket.technicianReturned?.name || 'N/A',
+    dateLogged: ticket.dateLogged.toISOString(),
+    dateResolved: ticket.dateResolved?.toISOString(),
+    remarks: ticket.remarks,
+    supplier: ticket.inventory.supplier ? { name: ticket.inventory.supplier.name, supplierID: ticket.inventory.supplier.supplierID } : null,
+    lpoReference: ticket.inventory.stockReceived?.lpoReference || null,
+    voucherNumber: ticket.inventory.stockReceived?.voucherNumber || null,
+  }));
 
-    return {
-      reportType,
-      filters,
-      data: formattedData,
-      meta: { totalRecords: total, generatedAt: new Date().toISOString() },
-    };
+  return {
+    reportType,
+    filters,
+    data: formattedData,
+    meta: { totalRecords: total, generatedAt: new Date().toISOString() },
+   };
   }
 }

@@ -75,24 +75,41 @@ export class HardwareTechnicianController {
   }
 
   @Get('reports')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('hardware_technician', 'supervisor')
-  async generateReport(
-    @Query('reportType') reportType: string,
-    @Request() req,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('deviceType') deviceType?: string,
-    @Query('status') status?: string,
-    @Query('userId') userId?: string,
-    @Query('departmentId') departmentId?: string,
-    @Query('priority') priority?: string,
-    @Query('issueType') issueType?: string,
-  ) {
-    return this.hardwareTechnicianService.generateReport(
-      reportType,
-      { startDate, endDate, deviceType, status, userId, departmentId, priority, issueType },
-      req.user.userId,
-    );
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('hardware_technician', 'supervisor')
+async generateReport(
+  @Query('reportType') reportType: string,
+  @Request() req,
+  @Query('startDate') startDate?: string,
+  @Query('endDate') endDate?: string,
+  @Query('deviceType') deviceType?: string,
+  @Query('status') status?: string,
+  @Query('userId') userId?: string,
+  @Query('departmentId') departmentId?: string,
+  @Query('priority') priority?: string,
+  @Query('issueType') issueType?: string,
+  @Query('brand') brand?: string,
+  @Query('model') model?: string,
+  @Query('technicianReceivedById') technicianReceivedById?: string,
+  @Query('technicianReturnedById') technicianReturnedById?: string,
+) {
+  return this.hardwareTechnicianService.generateReport(
+    reportType,
+    {
+      startDate,
+      endDate,
+      deviceType,
+      status,
+      userId,
+      departmentId,
+      priority,
+      issueType,
+      brand,
+      model,
+      technicianReceivedById,
+      technicianReturnedById,
+    },
+    req.user.userId,
+   );
   }
 }
