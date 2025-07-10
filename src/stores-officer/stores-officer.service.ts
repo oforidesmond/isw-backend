@@ -480,25 +480,27 @@ async getAllStockReceived() {
   }
 
  async generateReport(
-    reportType: string,
-    filters: {
-      startDate?: string;
-      endDate?: string;
-      itemClass?: string;
-      deviceType?: string;
-      status?: string;
-      reqStatus?: string;
-      itItemId?: string;
-      brand?: string; 
-      model?: string; 
-      minQuantity?: number; 
-      maxQuantity?: number;
-      // page?: number; 
-      // limit?: number; 
-    },
-  ) {
-    // Validate reportType
-     const validReportTypes = ['stock_received', 'stock_issued', 'requisitions', 'inventory', 'stock_levels'];
+  reportType: string,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    itemClass?: string;
+    deviceType?: string;
+    status?: string;
+    reqStatus?: string;
+    itItemId?: string;
+    brand?: string;
+    model?: string;
+    supplierId?: string;
+    lpoReference?: string;
+    voucherNumber?: string;
+    departmentId?: string;
+    minQuantity?: number;
+    maxQuantity?: number;
+  },
+) {
+  // Validate reportType
+  const validReportTypes = ['stock_received', 'stock_issued', 'requisitions', 'inventory', 'stock_levels'];
   if (!validReportTypes.includes(reportType)) {
     throw new BadRequestException(`Invalid report type. Must be one of: ${validReportTypes.join(', ')}`);
   }
@@ -514,23 +516,35 @@ async getAllStockReceived() {
     throw new BadRequestException('startDate must be before endDate');
   }
 
-  // Validate pagination
-  // const page = filters.page || 1;
-  // const limit = filters.limit || 10;
-  // if (page < 1 || limit < 1) {
-  //   throw new BadRequestException('Page and limit must be positive integers');
-  // }
-  // const skip = (page - 1) * limit;
+  // Validate quantities
+  if (filters.minQuantity !== undefined && (isNaN(filters.minQuantity) || filters.minQuantity < 0)) {
+    throw new BadRequestException('minQuantity must be a non-negative number');
+  }
+  if (filters.maxQuantity !== undefined && (isNaN(filters.maxQuantity) || filters.maxQuantity < 0)) {
+    throw new BadRequestException('maxQuantity must be a non-negative number');
+  }
+  if (
+    filters.minQuantity !== undefined &&
+    filters.maxQuantity !== undefined &&
+    filters.minQuantity > filters.maxQuantity
+  ) {
+    throw new BadRequestException('minQuantity must not exceed maxQuantity');
+  }
 
   // Build base query filters
   const where: any = { deletedAt: null };
   if (filters.itItemId) where.itItemId = filters.itItemId;
-  if (filters.itemClass) where.itItem = { itemClass: filters.itemClass };
+  if (filters.itemClass) where.itItem = { ...where.itItem, itemClass: filters.itemClass };
   if (filters.deviceType) where.itItem = { ...where.itItem, deviceType: filters.deviceType };
   if (filters.brand) where.itItem = { ...where.itItem, brand: { contains: filters.brand, mode: 'insensitive' } };
   if (filters.model) where.itItem = { ...where.itItem, model: { contains: filters.model, mode: 'insensitive' } };
+  if (filters.supplierId) where.supplierId = filters.supplierId;
+  if (filters.lpoReference) where.lpoReference = { contains: filters.lpoReference, mode: 'insensitive' };
+  if (filters.voucherNumber) where.voucherNumber = { contains: filters.voucherNumber, mode: 'insensitive' };
+  if (filters.departmentId) where.departmentId = filters.departmentId;
   if (filters.minQuantity !== undefined) where.quantityInStock = { gte: filters.minQuantity };
-  if (filters.maxQuantity !== undefined) where.quantityInStock = { ...where.quantityInStock, lte: filters.maxQuantity };
+  if (filters.maxQuantity !== undefined)
+    where.quantityInStock = { ...where.quantityInStock, lte: filters.maxQuantity };
 
   let data: any;
   let total: number;
@@ -543,15 +557,18 @@ async getAllStockReceived() {
           where: {
             ...where,
             ...(filters.startDate && { dateReceived: { gte: new Date(filters.startDate) } }),
-            ...(filters.endDate && { dateReceived: { ...where.dateReceived, lte: new Date(filters.endDate) } }),
+            ...(filters.endDate && { dateReceived: { lte: new Date(filters.endDate) } }),
+            ...(filters.lpoReference && { lpoReference: { contains: filters.lpoReference, mode: 'insensitive' } }),
+            ...(filters.voucherNumber && {
+              voucherNumber: { contains: filters.voucherNumber, mode: 'insensitive' },
+            }),
+            ...(filters.supplierId && { supplierId: filters.supplierId }),
           },
           include: {
             itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
-            supplier: { select: { name: true } },
+            supplier: { select: { name: true, supplierID: true } },
             receivedBy: { select: { name: true } },
           },
-          // skip,
-          // take: limit,
           orderBy: { dateReceived: 'desc' },
         }),
         this.prisma.stockReceived.count({ where }),
@@ -564,15 +581,30 @@ async getAllStockReceived() {
           where: {
             ...where,
             ...(filters.startDate && { issueDate: { gte: new Date(filters.startDate) } }),
-            ...(filters.endDate && { issueDate: { ...where.issueDate, lte: new Date(filters.endDate) } }),
+            ...(filters.endDate && { issueDate: { lte: new Date(filters.endDate) } }),
+            ...(filters.departmentId && { requisition: { departmentId: filters.departmentId } }),
           },
           include: {
             itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
             issuedBy: { select: { name: true } },
-            requisition: { select: { staff: { select: { name: true } } } },
+            requisition: {
+              select: {
+                staff: { select: { name: true } },
+                department: { select: { name: true } },
+              },
+            },
+            stockBatch: {
+              select: {
+                stockReceived: {
+                  select: {
+                    lpoReference: true,
+                    voucherNumber: true,
+                    supplier: { select: { name: true, supplierID: true } },
+                  },
+                },
+              },
+            },
           },
-          // skip,
-          // take: limit,
           orderBy: { issueDate: 'desc' },
         }),
         this.prisma.stockIssued.count({ where }),
@@ -585,18 +617,18 @@ async getAllStockReceived() {
           where: {
             ...where,
             ...(filters.startDate && { createdAt: { gte: new Date(filters.startDate) } }),
-            ...(filters.endDate && { createdAt: { ...where.createdAt, lte: new Date(filters.endDate) } }),
+            ...(filters.endDate && { createdAt: { lte: new Date(filters.endDate) } }),
             ...(filters.reqStatus && { status: filters.reqStatus }),
+            ...(filters.departmentId && { departmentId: filters.departmentId }),
           },
           include: {
             itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
             staff: { select: { name: true, email: true } },
             issuedBy: { select: { name: true } },
+            department: { select: { name: true } },
           },
-          // skip,
-          // take: limit,
           orderBy: { createdAt: 'desc' },
-  }),
+        }),
         this.prisma.requisition.count({ where }),
       ]);
       break;
@@ -607,18 +639,22 @@ async getAllStockReceived() {
           where: {
             ...where,
             ...(filters.startDate && { createdAt: { gte: new Date(filters.startDate) } }),
-            ...(filters.endDate && { createdAt: { ...where.createdAt, lte: new Date(filters.endDate) } }),
+            ...(filters.endDate && { createdAt: { lte: new Date(filters.endDate) } }),
             ...(filters.status && { status: filters.status }),
+            ...(filters.departmentId && { departmentId: filters.departmentId }),
+            ...(filters.supplierId && { supplierId: filters.supplierId }),
           },
           include: {
             itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true } },
             user: { select: { name: true } },
             department: { select: { name: true } },
+            supplier: { select: { name: true, supplierID: true } },
+            stockReceived: {
+              select: { lpoReference: true, voucherNumber: true },
+            },
           },
-          // skip,
-          // take: limit,
           orderBy: { createdAt: 'desc' },
-  }),
+        }),
         this.prisma.inventory.count({ where }),
       ]);
       break;
@@ -626,14 +662,24 @@ async getAllStockReceived() {
     case 'stock_levels':
       [data, total] = await Promise.all([
         this.prisma.stock.findMany({
-          where,
-          include: {
-            itItem: { select: { brand: true, model: true, itemClass: true, deviceType: true, itemID: true } },
+          where: {
+            ...where,
+            ...(filters.supplierId && { itItem: { ...where.itItem, supplierId: filters.supplierId } }),
           },
-          // skip,
-          // take: limit,
+          include: {
+            itItem: {
+              select: {
+                brand: true,
+                model: true,
+                itemClass: true,
+                deviceType: true,
+                itemID: true,
+                supplier: { select: { name: true, supplierID: true } },
+              },
+            },
+          },
           orderBy: { itItem: { brand: 'asc' } },
-  }),
+        }),
         this.prisma.stock.count({ where }),
       ]);
       break;
@@ -652,6 +698,30 @@ async getAllStockReceived() {
       deviceType: stock.itItem.deviceType,
       itemClass: stock.itItem.itemClass,
       quantityInStock: stock.quantityInStock,
+      supplier: stock.itItem.supplier ? { name: stock.itItem.supplier.name, supplierID: stock.itItem.supplier.supplierID } : null,
+    }));
+  }
+
+  // Format data for stock_issued to include supplier and LPO/voucher details
+  if (reportType === 'stock_issued') {
+    data = data.map((item) => ({
+      ...item,
+      supplier: item.stockBatch?.stockReceived?.supplier
+        ? { name: item.stockBatch.stockReceived.supplier.name, supplierID: item.stockBatch.stockReceived.supplier.supplierID }
+        : null,
+      lpoReference: item.stockBatch?.stockReceived?.lpoReference || null,
+      voucherNumber: item.stockBatch?.stockReceived?.voucherNumber || null,
+      department: item.requisition?.department ? { name: item.requisition.department.name } : null,
+    }));
+  }
+
+  // Format data for inventory to include supplier and LPO/voucher details
+  if (reportType === 'inventory') {
+    data = data.map((item) => ({
+      ...item,
+      supplier: item.supplier ? { name: item.supplier.name, supplierID: item.supplier.supplierID } : null,
+      lpoReference: item.stockReceived?.lpoReference || null,
+      voucherNumber: item.stockReceived?.voucherNumber || null,
     }));
   }
 
@@ -659,7 +729,7 @@ async getAllStockReceived() {
     reportType,
     filters,
     data,
-    meta: { totalRecords: total, generatedAt: new Date().toISOString(), totalPages: Math.ceil(total) },
-  };
-}
+    meta: { totalRecords: total, generatedAt: new Date().toISOString() },
+    };
+  }
 }
