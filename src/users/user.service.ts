@@ -61,10 +61,12 @@ export class UserService {
   // create requisition
 async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
   return this.prisma.$transaction(async (tx) => {
-    // Check for pending acknowledgments
     const pendingAcknowledgments = await tx.stockIssued.findMany({
       where: {
-        requisition: { staffId: userId },
+        requisition: { 
+          staffId: userId,
+          status: { not: RequisitionStatus.PENDING_ITD_APPROVAL }, // Exclude PENDING_ITD_APPROVAL
+        },
         acknowledgment: null, // No acknowledgment exists
         deletedAt: null,
       },
@@ -87,115 +89,112 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
     if (!user) throw new NotFoundException(`User ${userId} not found`);
 
     // Generate requisitionID using a sequence
+    const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
+      Prisma.sql`SELECT nextval('requisition_seq')`,
+    );
+    const sequenceNumber = sequenceResult[0].nextval;
+    const requisitionID = `REQ-${String(sequenceNumber).padStart(6, '0')}`;
 
-      const year = new Date().getFullYear();
-      const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
-        Prisma.sql`SELECT nextval('requisition_seq')`,
-      );
-      const sequenceNumber = sequenceResult[0].nextval;
-      const requisitionID = `REQ-${year}-${String(sequenceNumber).padStart(6, '0')}`;
-  
-      // Check and assign deptApprover
-      const department = await tx.department.findUnique({
-        where: { id: dto.departmentId },
-        select: { deptApproverId: true, name: true },
-      });
-      if (!department) throw new BadRequestException(`Department ${dto.departmentId} not found`);
-  
-      let deptApproverId: string | null = null;
-      let deptApprover: { email: string; name: string } | null = null;
-      let status: RequisitionStatus;
-  
-      // Skip dept approval if requester's department is IT
-      const itDepartment = await tx.department.findFirst({
-        where: { name: { equals: 'it', mode: 'insensitive' } }, // Case-insensitive check
-        select: { id: true },
-      });
-      const isITRequest = dto.departmentId === itDepartment?.id;
-  
-      if (!isITRequest) {
-        status = RequisitionStatus.PENDING_DEPT_APPROVAL;
-        deptApproverId = department.deptApproverId;
-        if (!deptApproverId) {
-          const approver = await tx.user.findFirst({
-            where: {
-              departmentId: dto.departmentId,
-              roles: { some: { role: { name: 'dept_approver' } } },
-              isActive: true,
-            },
-            select: { id: true, email: true, name: true },
-          });
-          if (!approver) throw new NotFoundException(`No dept approver for ${dto.departmentId}`);
-          deptApproverId = approver.id;
-          deptApprover = approver; // Store for email use
-        } else {
-          deptApprover = await tx.user.findUnique({
-            where: { id: deptApproverId },
-            select: { email: true, name: true },
-          });
-          if (!deptApprover) throw new NotFoundException(`Department approver ${deptApproverId} not found`);
-        }
-      } else {
-        status = RequisitionStatus.PENDING_ITD_APPROVAL;
-      }
-  
-      const itdApprover = await tx.user.findFirst({
-        where: {
-          departmentId: itDepartment?.id,
-          roles: { some: { role: { name: 'itd_approver' } } },
-          isActive: true,
-        },
-        select: { id: true, email: true, name: true },
-      });
-      if (!itdApprover) throw new NotFoundException('No ITD approver found');
-      const itdApproverId = itdApprover.id;
-  
-      const requisition = await tx.requisition.create({
-        data: {
-          requisitionID,
-          staffId: userId,
-          itItemId: dto.itItemId,
-          itemDescription: dto.itemDescription,
-          quantity: dto.quantity,
-          urgency: dto.urgency,
-          purpose: dto.purpose,
-          unitId: dto.unitId || user.unitId,
-          departmentId: dto.departmentId,
-          roomNo: dto.roomNo || user.roomNo,
-          status,
-          deptApproverId,
-          itdApproverId,
-        },
-      });
-  
-      const newState: Prisma.JsonObject = {
-        requisitionID: requisition.requisitionID,
-        itemDescription: requisition.itemDescription,
-        quantity: requisition.quantity,
-        urgency: requisition.urgency,
-        purpose: requisition.purpose,
-        status: requisition.status,
-      };
-  
-      const auditPayload: ExtendedAuditPayload = {
-        actionType: 'REQUISITION_SUBMITTED',
-        performedById: userId,
-        affectedUserId: userId,
-        entityType: 'Requisition',
-        entityId: requisition.id,
-        oldState: null,
-        newState,
-        ipAddress,
-        userAgent,
-        details: {
-          departmentId: dto.departmentId,
-          emailSent: {
-            submitter: false,
-            deptApprover: false,
-            itdApprover: false,
+    // Check and assign deptApprover
+    const department = await tx.department.findUnique({
+      where: { id: dto.departmentId },
+      select: { deptApproverId: true, name: true },
+    });
+    if (!department) throw new BadRequestException(`Department ${dto.departmentId} not found`);
+
+    let deptApproverId: string | null = null;
+    let deptApprover: { email: string; name: string } | null = null;
+    let status: RequisitionStatus;
+
+    const itDepartment = await tx.department.findFirst({
+      where: { name: { equals: 'it', mode: 'insensitive' } },
+      select: { id: true },
+    });
+    const isITRequest = dto.departmentId === itDepartment?.id;
+
+    if (!isITRequest) {
+      status = RequisitionStatus.PENDING_DEPT_APPROVAL;
+      deptApproverId = department.deptApproverId;
+      if (!deptApproverId) {
+        const approver = await tx.user.findFirst({
+          where: {
+            departmentId: dto.departmentId,
+            roles: { some: { role: { name: 'dept_approver' } } },
+            isActive: true,
           },
+          select: { id: true, email: true, name: true },
+        });
+        if (!approver) throw new NotFoundException(`No dept approver for ${dto.departmentId}`);
+        deptApproverId = approver.id;
+        deptApprover = approver;
+      } else {
+        deptApprover = await tx.user.findUnique({
+          where: { id: deptApproverId },
+          select: { email: true, name: true },
+        });
+        if (!deptApprover) throw new NotFoundException(`Department approver ${deptApproverId} not found`);
+      }
+    } else {
+      status = RequisitionStatus.PENDING_ITD_APPROVAL;
+    }
+
+    const itdApprover = await tx.user.findFirst({
+      where: {
+        departmentId: itDepartment?.id,
+        roles: { some: { role: { name: 'itd_approver' } } },
+        isActive: true,
+      },
+      select: { id: true, email: true, name: true },
+    });
+    if (!itdApprover) throw new NotFoundException('No ITD approver found');
+    const itdApproverId = itdApprover.id;
+
+    const requisition = await tx.requisition.create({
+      data: {
+        requisitionID,
+        staffId: userId,
+        itItemId: dto.itItemId,
+        itemDescription: dto.itemDescription,
+        quantity: dto.quantity,
+        urgency: dto.urgency,
+        purpose: dto.purpose,
+        unitId: dto.unitId || user.unitId,
+        departmentId: dto.departmentId,
+        roomNo: dto.roomNo || user.roomNo,
+        status,
+        deptApproverId,
+        itdApproverId,
+      },
+    });
+
+    const newState: Prisma.JsonObject = {
+      requisitionID: requisition.requisitionID,
+      itemDescription: requisition.itemDescription,
+      quantity: requisition.quantity,
+      urgency: requisition.urgency,
+      purpose: requisition.purpose,
+      status: requisition.status,
+    };
+
+    const auditPayload: ExtendedAuditPayload = {
+      actionType: 'REQUISITION_SUBMITTED',
+      performedById: userId,
+      affectedUserId: userId,
+      entityType: 'Requisition',
+      entityId: requisition.id,
+      oldState: null,
+      newState,
+      ipAddress,
+      userAgent,
+      details: {
+        departmentId: dto.departmentId,
+        emailSent: {
+          submitter: false,
+          deptApprover: false,
+          itdApprover: false,
         },
-      };
+      },
+    };
   
       // // Email submitter
       // await this.emailQueue.add(
