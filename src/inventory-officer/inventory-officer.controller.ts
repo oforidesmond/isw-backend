@@ -64,31 +64,35 @@ export class InventoryOfficerController {
     );
   }
 
-  @Get('reports')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('inventory_officer', 'supervisor')
-  async generateReport(
-    @Query('reportType') reportType: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('deviceType') deviceType?: string,
-    @Query('status') status?: string,
-    @Query('userId') userId?: string,
-    @Query('departmentId') departmentId?: string,
-    @Query('unitId') unitId?: string,
-    @Query('serialNumber') serialNumber?: string,
-    @Query('warrantyPeriod') warrantyPeriod?: string | number,
-  ) {
-    return this.inventoryOfficerService.generateReport(reportType, {
-      startDate,
-      endDate,
-      deviceType,
-      status,
-      userId,
-      departmentId,
-      unitId,
-      serialNumber,
-      warrantyPeriod,
+ @Get('reports')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('inventory_officer', 'supervisor')
+async generateReport(
+  @Query('reportType') reportType: string,
+  @Query('startDate') startDate?: string,
+  @Query('endDate') endDate?: string,
+  @Query('deviceType') deviceType?: string,
+  @Query('status') status?: string,
+  @Query('userId') userId?: string,
+  @Query('departmentId') departmentId?: string,
+  @Query('unitId') unitId?: string,
+  @Query('serialNumber') serialNumber?: string,
+  @Query('warrantyPeriod') warrantyPeriod?: string | number,
+  @Query('brand') brand?: string,
+  @Query('model') model?: string,
+) {
+  return this.inventoryOfficerService.generateReport(reportType, {
+    startDate,
+    endDate,
+    deviceType,
+    status,
+    userId,
+    departmentId,
+    unitId,
+    serialNumber,
+    warrantyPeriod,
+    brand,
+    model,
     });
   }
 }
