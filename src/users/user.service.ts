@@ -61,10 +61,12 @@ export class UserService {
   // create requisition
 async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
   return this.prisma.$transaction(async (tx) => {
-    // Check for pending acknowledgments
     const pendingAcknowledgments = await tx.stockIssued.findMany({
       where: {
-        requisition: { staffId: userId },
+        requisition: { 
+          staffId: userId,
+          status: { not: RequisitionStatus.PENDING_ITD_APPROVAL }, // Exclude PENDING_ITD_APPROVAL
+        },
         acknowledgment: null, // No acknowledgment exists
         deletedAt: null,
       },
