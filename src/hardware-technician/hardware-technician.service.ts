@@ -373,7 +373,13 @@ export class HardwareTechnicianService {
           ? { connect: { id: dto.technicianReturnedById } }
           : { disconnect: true };
       }
-      if (dto.dateResolved !== undefined) updateData.dateResolved = dto.dateResolved ? new Date(dto.dateResolved) : null;
+        if (dto.dateResolved !== undefined) {updateData.dateResolved = dto.dateResolved ? new Date(dto.dateResolved) : null;} else if (
+       dto.actionTaken !== undefined ||
+       dto.technicianReturnedById !== undefined ||
+       dto.remarks !== undefined
+     ) {
+       updateData.dateResolved = new Date();
+     }
       if (dto.remarks !== undefined) updateData.remarks = dto.remarks;
 
       const updatedTicket = await tx.maintenanceTicket.update({
