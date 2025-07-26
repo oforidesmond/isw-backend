@@ -76,6 +76,10 @@ enum AuditActionType {
   UNIT_CREATED
   UNIT_MODIFIED
   UNIT_DELETED
+  // Division Events
+  DIVISION_CREATED
+  DIVISION_MODIFIED
+  DIVISION_DELETED
 }
 
 enum DeviceType {
@@ -131,12 +135,36 @@ enum Priority {
 // Core Models
 // ========================
 
+model Division {
+  id          String      @id @default(uuid())
+  name        String
+  description String?    
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?   
+
+  departments Department[] @relation("DivisionDepartments")
+  units       Unit[]       @relation("DivisionUnit")
+  users       User[]       @relation("DivisionUsers")
+  inventory   Inventory[]   @relation("DivisionInventory")
+  requisitions Requisition[] @relation("DivisionRequisitions")
+  maintenanceTickets MaintenanceTicket[] @relation("DivisionMaintenanceTickets")
+  stock       Stock[]      @relation("DivisionStock")
+  stockIssued StockIssued[] @relation("DivisionStockIssued")
+  stockReceived StockReceived[] @relation("DivisionStockReceived")
+
+  @@unique([name])
+  @@map("divisions")
+}
+
 model Department {
-  id             String  @id @default(uuid())
-  name           String  @unique
-  location       String?
+  id          String    @id @default(uuid())
+  name        String
+  divisionId  String?
+  division    Division?  @relation("DivisionDepartments", fields: [divisionId], references: [id])
+  location    String?
   deptApproverId String? @unique
-  deptApprover   User?   @relation("DepartmentApprover", fields: [deptApproverId], references: [id])
+  deptApprover User?   @relation("DepartmentApprover", fields: [deptApproverId], references: [id])
 
   units Unit[] @relation("DepartmentUnits")
   users User[] @relation("DepartmentUsers")
@@ -149,12 +177,15 @@ model Department {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  @@unique([name, divisionId])
   @@map("departments")
 }
 
 model Unit {
   id           String     @id @default(uuid())
   name         String     @unique
+  divisionId      String?       
+  division        Division?     @relation("DivisionUnit", fields: [divisionId], references: [id])
   departmentId String
   department   Department @relation("DepartmentUnits", fields: [departmentId], references: [id])
 
@@ -175,6 +206,8 @@ model User {
   password      String
   mustResetPassword Boolean @default(true)
   name         String?
+  divisionId   String?
+  division     Division?   @relation("DivisionUsers", fields: [divisionId], references: [id])
   departmentId String?
   department   Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
   unitId       String?
@@ -187,7 +220,6 @@ model User {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  // Relationships
   roles                      UserRole[]          @relation("UserRoles")
   performedAudits            AuditLog[]          @relation("PerformedBy")
   affectedAudits             AuditLog[]          @relation("AffectedUser")
@@ -202,7 +234,6 @@ model User {
   maintenanceTicketsAudited  MaintenanceTicket[] @relation("AuditedBy")
   maintenanceTickets         MaintenanceTicket[] @relation("UserMaintenanceTickets")
 
-  // Back-relations for Inventory
   inventories               Inventory[] @relation("UserInventory")
   markedObsoleteInventories Inventory[] @relation("MarkedObsoleteBy")
   disposedInventories       Inventory[] @relation("DisposedBy")
@@ -214,7 +245,7 @@ model User {
 }
 
 // ========================
-// Enhanced Audit Logging
+// Audit Logging
 // ========================
 model AuditLog {
   id             String          @id @default(uuid())
@@ -240,7 +271,7 @@ model AuditLog {
 }
 
 // ========================
-// Role & Permission System
+// Role & Permissions
 // ========================
 model Role {
   id          String           @id @default(uuid())
@@ -261,7 +292,6 @@ model UserRole {
   createdAt DateTime @default(now())
   deletedAt DateTime? 
   updatedAt DateTime  @updatedAt
-  // Relationships
   user User @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
@@ -295,7 +325,7 @@ model RolePermission {
 }
 
 // ========================
-// Inventory Enhancements
+// Inventory
 // ========================
 
 model Inventory {
@@ -307,6 +337,8 @@ model Inventory {
   stockReceived   StockReceived @relation("InventoryStockReceived", fields: [stockReceivedId], references: [id])
   userId          String
   user            User          @relation("UserInventory", fields: [userId], references: [id])
+  divisionId      String?       
+  division        Division?     @relation("DivisionInventory", fields: [divisionId], references: [id])
   departmentId    String
   department      Department    @relation("DepartmentInventory", fields: [departmentId], references: [id])
   unitId          String?
@@ -315,26 +347,22 @@ model Inventory {
   supplierId      String?
   supplier        Supplier?     @relation("SupplierInventory", fields: [supplierId], references: [id])
 
-  // Inventory Details
   warrantyPeriod  Int 
   purchaseDate    DateTime
   status          InventoryStatus
   statusChangedAt DateTime?
 
-  // Obsolescence and Disposal
   markedObsoleteBy   User?     @relation("MarkedObsoleteBy", fields: [markedObsoleteById], references: [id])
   markedObsoleteById String?
   disposedBy         User?     @relation("DisposedBy", fields: [disposedById], references: [id])
   disposedById       String?
   disposalDate       DateTime?
 
-  // Additional Information
   remarks   String? 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  // Device-specific relationships
   desktopDetails DesktopDetails?
   printerDetails PrinterDetails?
   upsDetails     UPSDetails?
@@ -343,19 +371,17 @@ model Inventory {
 
   maintenanceTickets MaintenanceTicket[] @relation("InventoryMaintenanceTicket")
 
-  // Indexes
   @@index([itItemId])
   @@index([status])
+  @@index([divisionId]) 
   @@map("inventory")
 }
 
-// Device-specific models (Desktop-specific fields)
 model DesktopDetails {
   id          String    @id @default(uuid())
   inventoryId String    @unique
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
-  // Desktop Specifications
   desktopBrand                String?
   desktopModel                String?
   desktopSerialNumber         String?
@@ -375,13 +401,11 @@ model DesktopDetails {
   @@map("desktop_details")
 }
 
-// Device-specific models (Laptop-specific fields)
 model LaptopDetails {
   id          String    @id @default(uuid())
   inventoryId String    @unique
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
-  // Laptop Specifications
   laptopBrand                String?
   laptopModel                String?
   laptopSerialNumber         String?
@@ -398,13 +422,11 @@ model LaptopDetails {
   @@map("laptop_details")
 }
 
-// Device-specific models (Printer-specific fields)
 model PrinterDetails {
   id          String    @id @default(uuid())
   inventoryId String    @unique
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
-  // Printer Specifications
   printerBrand        String?
   printerModel        String?
   printerSerialNumber String?
@@ -415,13 +437,11 @@ model PrinterDetails {
   @@map("printer_details")
 }
 
-// Device-specific models (UPS-specific fields)
 model UPSDetails {
   id          String    @id @default(uuid())
   inventoryId String    @unique
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
-  // UPS Specifications
   upsBrand        String?
   upsModel        String?
   upsSerialNumber String?
@@ -430,13 +450,11 @@ model UPSDetails {
   @@map("ups_details")
 }
 
-// Device-specific models (Other-specific fields)
 model OtherDetails {
   id          String    @id @default(uuid())
   inventoryId String?    @unique
   inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
-  // Other Device Specifications
   deviceType        String? 
   otherBrand        String?
   otherModel        String?
@@ -448,7 +466,7 @@ model OtherDetails {
 }
 
 // ========================
-// Soft Delete & Cascading
+// Supplier
 // ========================
 model Supplier {
   id             String    @id @default(uuid())
@@ -501,7 +519,7 @@ model ITItem {
 
 model Requisition {
   id                 String            @id @default(uuid())
-  requisitionID      String            @unique // e.g., "REQ-2023-001"
+  requisitionID      String            @unique
   staffId            String
   staff              User              @relation("UserRequisitions", fields: [staffId], references: [id],onDelete: Cascade, map: "requisition_staff_fkey")
   itItemId           String?
@@ -512,6 +530,8 @@ model Requisition {
   purpose            String
   unitId             String?
   unit               Unit?             @relation("UnitRequisitions", fields: [unitId], references: [id])
+  divisionId         String?          
+  division           Division?          @relation("DivisionRequisitions", fields: [divisionId], references: [id])
   departmentId       String
   department         Department        @relation("DepartmentRequisitions", fields: [departmentId], references: [id])
   roomNo             String?
@@ -520,11 +540,11 @@ model Requisition {
   itdApproverId      String?
   itdApprover        User?             @relation("ITDApprover", fields: [itdApproverId], references: [id], map: "requisition_itdApprover_fkey")
   status             RequisitionStatus @default(PENDING_DEPT_APPROVAL)
-  declineReason      String? // Mandatory if declined
-  approvalSignatures Json? // Digital signatures from Approval Managers
-  issuedById         String?           // Added: Stores officer who issued it
-  issuedBy           User?             @relation("IssuedRequisitions", fields: [issuedById], references: [id]) // New relation
-  issuedAt           DateTime?         // Added: When it was issued
+  declineReason      String?
+  approvalSignatures Json?
+  issuedById         String?
+  issuedBy           User?             @relation("IssuedRequisitions", fields: [issuedById], references: [id])
+  issuedAt           DateTime?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
@@ -533,6 +553,7 @@ model Requisition {
 
   @@index([staffId])
   @@index([status])
+  @@index([divisionId])
   @@map("requisitions")
 }
 
@@ -551,6 +572,8 @@ model StockReceived {
   receivedBy       User      @relation("UserStockReceived", fields: [receivedById], references: [id])
   dateReceived     DateTime
   remarks          String?
+   divisionId      String?       
+  division        Division?     @relation("DivisionStockReceived", fields: [divisionId], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
@@ -571,6 +594,8 @@ model Stock {
   itItemId        String    @unique
   itItem          ITItem    @relation("ITItemStock", fields: [itItemId], references: [id])
   quantityInStock Int
+   divisionId      String?       
+  division        Division?     @relation("DivisionStock", fields: [divisionId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -579,6 +604,8 @@ model Stock {
   @@index([itItemId])
   @@index([quantityInStock])
   @@index([itItemId, quantityInStock])
+  @@index([divisionId])
+  @@unique([itItemId, divisionId])
   @@map("stocks")
 }
 
@@ -597,6 +624,8 @@ model StockIssued {
   issueDate        DateTime
   disbursementNote String? 
   remarks          String?
+   divisionId      String?       
+  division        Division?     @relation("DivisionStockIssued", fields: [divisionId], references: [id])
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   deletedAt        DateTime?
@@ -611,27 +640,30 @@ model StockIssued {
   @@index([requestDate])
   @@index([requisitionId, stockBatchId])
   @@map("stock_issued")
+  @@index([divisionId])
   @@unique([requisitionId, itItemId])
 }
 
 model MaintenanceTicket {
   id                     String     @id @default(uuid())
-  ticketId               String     @unique // e.g., "TKT-001"
+  ticketId               String     @unique
   assetId                String
   inventory              Inventory  @relation("InventoryMaintenanceTicket", fields: [assetId], references: [id])
   technicianReceivedById String
   technicianReceived     User       @relation("TechnicianReceived", fields: [technicianReceivedById], references: [id])
-  receivedAt             DateTime   @default(now()) // Date and time the machine was received
+  receivedAt             DateTime   @default(now())
   userId                 String
   user                   User       @relation("UserMaintenanceTickets", fields: [userId], references: [id])
   issueType              IssueType
   unitId                 String?
   unit                   Unit?      @relation("UnitMaintenanceTickets", fields: [unitId], references: [id])
+  divisionId             String?  
+  division               Division?  @relation("DivisionMaintenanceTickets", fields: [divisionId], references: [id])
   departmentId           String
   department             Department @relation("DepartmentMaintenanceTickets", fields: [departmentId], references: [id])
   description            String
   priority               Priority
-  actionTaken            String? // e.g., Repair, Update, Replacement, etc.
+  actionTaken            String?
   technicianReturnedById String?
   technicianReturned     User?      @relation("TechnicianReturned", fields: [technicianReturnedById], references: [id])
   dateLogged             DateTime   @default(now())
@@ -648,6 +680,7 @@ model MaintenanceTicket {
   @@index([technicianReceivedById])
   @@index([priority])
   @@index([auditedById])
+  @@index([divisionId])
   @@index([departmentId])
   @@index([departmentId, unitId])
   @@index([dateLogged])
@@ -656,7 +689,7 @@ model MaintenanceTicket {
 }
 
 // ========================
-// Transactional Stock Tracking
+// Stock
 // ========================
 model StockBatch {
   id              String        @id @default(uuid())
@@ -675,12 +708,12 @@ model StockBatch {
 
 model ItemReceiptAcknowledgment {
   id             String      @id @default(uuid())
-  stockIssuedId  String      @unique // Links to the issued item
+  stockIssuedId  String      @unique
   stockIssued    StockIssued @relation("StockIssuedAcknowledgment", fields: [stockIssuedId], references: [id], onDelete: Cascade)
-  userId         String      // The user acknowledging receipt
+  userId         String
   user           User        @relation("UserAcknowledgments", fields: [userId], references: [id])
-  acknowledgedAt DateTime    // When the acknowledgment was made
-  remarks        String?     // Optional comments
+  acknowledgedAt DateTime
+  remarks        String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   deletedAt      DateTime?
