@@ -70,7 +70,7 @@ export class UserManagementService {
     userAgent?: string,
   ) {
     // Check if department name already exists
-    const existingDepartment = await this.prisma.department.findUnique({
+    const existingDepartment = await this.prisma.department.findFirst({
       where: { name: data.name },
     });
 
