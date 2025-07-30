@@ -1,7 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Ip, Query } from '@nestjs/common';
-// import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateAdminDto } from './dto/update-admin.dto';
 import { JwtAuthGuard } from 'auth/jwt-auth.guard';
 import { RolesGuard } from 'auth/roles.guard';
 import { Roles } from 'auth/roles.decorator';
@@ -28,7 +26,6 @@ export class AdminController {
     private readonly SuppliersService: SuppliersService
   ) {}
 
-  //get amdin profile
   @Get('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -36,7 +33,6 @@ export class AdminController {
     return req.user;
   }
   
-  //get all active users
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
@@ -44,7 +40,6 @@ export class AdminController {
     return this.userQueryService.getAllUsers();
   }
 
-  //get deleted users
   @Get('users/deleted')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -52,7 +47,6 @@ export class AdminController {
     return this.userQueryService.getAllDeletedUsers();
   }
 
-  //create user
   @Post('user')
   @UseGuards(JwtAuthGuard, RolesGuard) 
   @Roles('admin') 
@@ -60,7 +54,6 @@ export class AdminController {
     return this.userManagementService.createUser(createUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-//Softdelete user
   @Patch('user/:staffId/delete')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -68,7 +61,6 @@ async softDeleteUser(@Param('staffId') staffId: string, @Request() req) {
   return this.userManagementService.softDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
 }
 
-//not for prod
 @Delete('user/:staffId/permanent')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -76,7 +68,6 @@ async permanentlyDeleteUser(@Param('staffId') staffId: string, @Request() req) {
     return this.userManagementService.permanentlyDeleteUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
 }
 
-//restore a user
 @Patch('user/:staffId/restore')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -84,7 +75,6 @@ async restoreUser(@Param('staffId') staffId: string, @Request() req) {
   return this.userManagementService.restoreUser(staffId, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-//Update User Data
 @Patch('user/:staffId')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -96,7 +86,6 @@ async updateUser(
   return this.userManagementService.updateUser(staffId, updateUserDto, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-  //Manually reset user password
   @Post('user/:staffId/reset-password')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -104,7 +93,6 @@ async updateUser(
     return this.userManagementService.resetPassword(staffId, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-  //Modify activeStatus of user
   @Patch('user/:staffId/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -116,7 +104,6 @@ async updateUser(
     return this.userManagementService.toggleStatus(staffId, isActive, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-  //Get all roles
   @Get('roles')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -124,7 +111,6 @@ async updateUser(
     return this.roleService.getAllRoles();
   }
 
-  //Create Role
   @Post('role')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -132,7 +118,6 @@ async createRole(@Body() createRoleDto: CreateRoleDto, @Request() req) {
   return this.roleService.createRole(createRoleDto, req.user.userId, req.ip, req.headers['user-agent']);
 }
 
-  //Edit Permissions for a Role
   @Patch('role/:roleId/permissions')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -144,7 +129,6 @@ async updateRolePermissions(
   return this.roleService.updateRolePermissions(roleId, body.permissions, req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-  //Assign deptApprover to user
   @Patch('dept/assign-approver')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -162,7 +146,6 @@ async updateRolePermissions(
     );
   }
 
-  // Add new ItItem
   @Post('ititems/new')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -174,7 +157,6 @@ async updateRolePermissions(
     return this.adminITItemsService.createITItem(req.user.userId, dto, ipAddress, req.headers['user-agent']);
   }
 
-  // Add Suppliers
   @Post('suppliers/create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -182,7 +164,6 @@ async updateRolePermissions(
     return this.SuppliersService.createSupplier(req.user.userId, dto, req.ip, req.headers['user-agent']);
   }
 
-  // Get Suppliers
   @Get('suppliers')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
@@ -190,7 +171,6 @@ async updateRolePermissions(
     return this.SuppliersService.getSuppliers();
   }
 
-   //Get IT items
    @Get('it-items')
    @UseGuards(JwtAuthGuard, RolesGuard)
    @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
@@ -198,7 +178,6 @@ async updateRolePermissions(
      return this.adminITItemsService.getAvailableITItems();
    }
 
-    // Get all departments
   @Get('departments')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'supervisor', 'stores_officer', 'inventory_officer', 'hardware_technician')
@@ -206,7 +185,6 @@ async updateRolePermissions(
     return this.userManagementService.getAllDepartments(includeUnits === 'true');
   }
 
-  // Create a new department
   @Post('departments/new')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -219,7 +197,6 @@ async updateRolePermissions(
     );
   }
 
-  // Get all units
   @Get('units')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -227,7 +204,6 @@ async updateRolePermissions(
     return this.userManagementService.getAllUnits();
   }
 
-  // Create a new unit
   @Post('units/new')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -240,7 +216,6 @@ async updateRolePermissions(
     );
   }
 
-  // Soft delete a department
   @Delete('departments/:id/delete')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -253,7 +228,6 @@ async updateRolePermissions(
     );
   }
 
-   // Soft delete a unit
    @Delete('units/:id/delete')
    @UseGuards(JwtAuthGuard, RolesGuard)
    @Roles('admin')
@@ -266,7 +240,6 @@ async updateRolePermissions(
      );
    }
 
-    // Get all permissions
    @Get('permissions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -274,7 +247,6 @@ async updateRolePermissions(
     return this.roleService.getAllPermissions(includeRoles === 'true');
   }
 
-    // Soft delete a permission
     @Delete('permissions/:id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin')
@@ -290,7 +262,6 @@ async updateRolePermissions(
       );
     }
 
-  // Get audit logs
   @Get('audit-logs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -305,7 +276,6 @@ async updateRolePermissions(
     });
   }
 
-  // Soft delete a supplier
   @Delete('suppliers/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -318,7 +288,6 @@ async updateRolePermissions(
     );
   }
 
-     // Soft delete an IT item
   @Delete('it-items/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -334,7 +303,6 @@ async updateRolePermissions(
     );
   }
 
-  // Soft delete a role
   @Delete('roles/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')

@@ -4,7 +4,6 @@ import { AuditService } from 'audit/audit.service';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
 import { Prisma, RequisitionStatus } from '@prisma/client';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
-// import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 
@@ -32,7 +31,6 @@ export class UserService {
   constructor(
     private prisma: PrismaService,     
     private auditService: AuditService,
-    // private mailerService: MailerService, 
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
@@ -58,7 +56,6 @@ export class UserService {
     };
   }
 
-  // create requisition
 async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: string, userAgent?: string) {
   return this.prisma.$transaction(async (tx) => {
     const pendingAcknowledgments = await tx.stockIssued.findMany({
@@ -67,7 +64,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
           staffId: userId,
           status: { not: RequisitionStatus.PENDING_ITD_APPROVAL }, // Exclude PENDING_ITD_APPROVAL
         },
-        acknowledgment: null, // No acknowledgment exists
+        acknowledgment: null, // if no acknowledgment exists
         deletedAt: null,
       },
       include: { itItem: { select: { brand: true, model: true } } },
@@ -88,14 +85,12 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
     });
     if (!user) throw new NotFoundException(`User ${userId} not found`);
 
-    // Generate requisitionID using a sequence
     const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>(
       Prisma.sql`SELECT nextval('requisition_seq')`,
     );
     const sequenceNumber = sequenceResult[0].nextval;
     const requisitionID = `REQ-${String(sequenceNumber).padStart(6, '0')}`;
 
-    // Check and assign deptApprover
     const department = await tx.department.findUnique({
       where: { id: dto.departmentId },
       select: { deptApproverId: true, name: true },
@@ -352,7 +347,6 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
 
       await this.auditService.logAction(auditPayload, tx);
 
-      // Notify user of successful acknowledgment
       const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
       if (user) {
         await this.emailQueue.add(
@@ -374,7 +368,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
     });
   }
 
-  // All pending acknowledgements
+  // pending acknowledgements
 async getPendingAcknowledgments(userId: string) {
   const pending = await this.prisma.stockIssued.findMany({
     where: {

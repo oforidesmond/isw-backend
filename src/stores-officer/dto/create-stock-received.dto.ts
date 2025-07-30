@@ -63,11 +63,10 @@ export class CreateSupplierDto {
   remarks?: string;
 }
 
-// DTO for filtering stock levels
 export class StockLevelsFilterDto {
   @IsOptional()
   @IsString()
-  brand?: string; // e.g., "Dell"
+  brand?: string;
 
   @IsOptional()
   @IsString()
@@ -75,7 +74,7 @@ export class StockLevelsFilterDto {
 
   @IsOptional()
   @IsEnum(DeviceType, { message: "deviceType must be one of: LAPTOP, DESKTOP, PRINTER, UPS, OTHER" })
-  deviceType?: DeviceType; // Use DeviceType enum directly
+  deviceType?: DeviceType;
 
   @IsOptional()
   @IsInt()

@@ -12,10 +12,9 @@ export class RoleService {
     private auditService: AuditService,
   ) {}
 
-  //Get all ROles with their permissions
   async getAllRoles() {
     return this.prisma.role.findMany({
-      where: { deletedAt: null }, // Only active roles
+      where: { deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -36,7 +35,6 @@ export class RoleService {
     });
   }
 
-   // Get all permissions
    async getAllPermissions(includeRoles: boolean = false) {
     return this.prisma.permission.findMany({
       where: { deletedAt: null },
@@ -64,7 +62,6 @@ export class RoleService {
     });
   }
 
-  // Soft delete a permission
   async softDeletePermission(
     permissionId: string,
     adminId: string,
@@ -72,7 +69,6 @@ export class RoleService {
     userAgent?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Find the permission
       const permission = await tx.permission.findUnique({
         where: { id: permissionId },
       });
@@ -85,19 +81,16 @@ export class RoleService {
         throw new BadRequestException(`Permission with ID ${permissionId} is already deleted`);
       }
 
-      // Soft delete the permission
       await tx.permission.update({
         where: { id: permissionId },
         data: { deletedAt: new Date() },
       });
 
-      // Soft delete associated RolePermission records
       await tx.rolePermission.updateMany({
         where: { permissionId: permissionId, deletedAt: null },
         data: { deletedAt: new Date() },
       });
 
-      // Prepare audit log
       const oldState: Prisma.JsonObject = {
         resource: permission.resource,
         actions: permission.actions,
@@ -116,14 +109,12 @@ export class RoleService {
         details: { softDelete: true },
       };
 
-      // Log the action
       await this.auditService.logAction(auditPayload, tx);
 
       return { message: `Permission ${permission.resource} soft-deleted successfully` };
     });
   }
 
-  // Soft delete a role
   async softDeleteRole(
     roleId: string,
     adminId: string,
@@ -131,7 +122,6 @@ export class RoleService {
     userAgent?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Find the role with RolePermission and UserRole relations
       const role = await tx.role.findUnique({
         where: { id: roleId },
         include: {
@@ -157,25 +147,21 @@ export class RoleService {
       if (role.name === 'admin') {
         throw new BadRequestException('Cannot delete the admin role');
       }
-      // Soft delete the role
       await tx.role.update({
         where: { id: roleId },
         data: { deletedAt: new Date() },
       });
 
-      // Soft delete associated RolePermission records
       await tx.rolePermission.updateMany({
         where: { roleId: roleId, deletedAt: null },
         data: { deletedAt: new Date() },
       });
 
-      // Soft delete associated UserRole records
       await tx.userRole.updateMany({
         where: { roleId: roleId, deletedAt: null },
         data: { deletedAt: new Date() },
       });
 
-      // Prepare audit log
       const oldState: Prisma.JsonObject = {
         name: role.name,
         permissions: role.permissions.map(p => p.permissionId),
@@ -196,30 +182,24 @@ export class RoleService {
           userCount: role.users.length,},
       };
 
-      // Log the action
       await this.auditService.logAction(auditPayload, tx);
 
       return { message: `Role ${role.name} soft-deleted successfully` };
     });
   }
 
-  //Create Role
   async createRole(data: CreateRoleDto, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
-      // Check if role name already exists
       const existingRole = await tx.role.findUnique({ where: { name: data.name } });
       if (existingRole && !existingRole.deletedAt) {
         throw new BadRequestException(`Role with name "${data.name}" already exists`);
       }
   
-      // Create the role
       const newRole = await tx.role.create({
         data: { name: data.name },
       });
   
-      // Assign permissions if provided
       if (data.permissions && data.permissions.length > 0) {
-        // Verify all permissions exist and are active
         const permissions = await tx.permission.findMany({
           where: { id: { in: data.permissions }, deletedAt: null },
         });
@@ -234,13 +214,11 @@ export class RoleService {
         await tx.rolePermission.createMany({ data: permissionData });
       }
   
-      // Fetch the role with permissions for audit
       const createdRole = await tx.role.findUnique({
         where: { id: newRole.id },
         include: { permissions: true },
       });
   
-      // Log the action
       const newState: Prisma.JsonObject = {
         name: createdRole.name,
         permissions: createdRole.permissions.map(p => p.permissionId),
@@ -249,7 +227,7 @@ export class RoleService {
       const auditPayload: AuditPayload = {
         actionType: 'ROLE_CREATED',
         performedById: adminId,
-        affectedUserId: null, // No user affected
+        affectedUserId: null, 
         entityType: 'Role',
         entityId: newRole.id,
         oldState: null,
@@ -265,7 +243,6 @@ export class RoleService {
     });
   }
   
-  //Update the permissions of a Role
   async updateRolePermissions(roleId: string, permissionIds: string[], adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.findUnique({
@@ -280,10 +257,8 @@ export class RoleService {
         permissions: role.permissions.map(p => p.permissionId),
       };
 
-      // Delete existing permissions
       await tx.rolePermission.deleteMany({ where: { roleId } });
 
-      // Add new permissions
       if (permissionIds.length > 0) {
         const permissionData = permissionIds.map(permissionId => ({
           roleId,

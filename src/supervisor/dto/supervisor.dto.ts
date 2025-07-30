@@ -4,16 +4,15 @@ import { DeviceType, InventoryStatus, IssueType, Priority, RequisitionStatus, Ur
 export class MaintenanceReportDto {
   @IsOptional()
   @IsDateString()
-  startDate?: string; // e.g., '2024-01-01'
+  startDate?: string;
 
   @IsOptional()
   @IsDateString()
-  endDate?: string; // e.g., '2024-12-31'
+  endDate?: string;
 
   @IsOptional()
   @IsEnum(IssueType)
-  issueType?: IssueType; // e.g., 'HARDWARE', 'SOFTWARE'
-
+  issueType?: IssueType;
   @IsOptional()
   @IsString()
   departmentId?: string;
@@ -24,15 +23,15 @@ export class MaintenanceReportDto {
 
   @IsOptional()
   @IsEnum(Priority)
-  priority?: Priority; // e.g., 'HIGH', 'MEDIUM', 'LOW'
+  priority?: Priority;
 
   @IsOptional()
   @IsString()
-  status?: 'OPEN' | 'RESOLVED'; // Filter by resolution status
+  status?: 'OPEN' | 'RESOLVED';
 
   @IsOptional()
   @IsString()
-  assetId?: string; // For asset-specific reports
+  assetId?: string;
 }
 
 export class WorkReportDto {
@@ -46,14 +45,13 @@ export class WorkReportDto {
 
   @IsOptional()
   @IsString()
-  technicianId?: string; // Specific technician or all
+  technicianId?: string;
 }
 
 export class OverdueTicketsReportDto {
   @IsOptional()
   @IsString()
-  thresholdDays?: string; // e.g., '30' for tickets open > 30 days
-
+  thresholdDays?: string;
   @IsOptional()
   @IsString()
   departmentId?: string;
@@ -100,10 +98,8 @@ export class RequisitionApprovalDelaysDto {
 
   @IsOptional()
   @IsString()
-  approverId?: string; // deptApproverId or itdApproverId
+  approverId?: string;
 }
-
-// Stock Reports
 
 export class StockReportDto {
   @IsOptional()
@@ -120,37 +116,37 @@ export class StockReportDto {
 
   @IsOptional()
   @IsString()
-  departmentId?: string; // For StockIssued report, via Requisition
+  departmentId?: string;
 
   @IsOptional()
   @IsNumberString()
-  minQuantity?: string; // For low stock thresholds, e.g., '10'
+  minQuantity?: string;
 
   @IsOptional()
   @IsString()
-  issuedById?: string; // For StockIssued report
+  issuedById?: string; 
 }
 
 export class InventoryReportDto {
   @IsOptional()
   @IsDateString()
-  startPurchaseDate?: string; // e.g., '2020-01-01'
+  startPurchaseDate?: string;
 
   @IsOptional()
   @IsDateString()
-  endPurchaseDate?: string; // e.g., '2023-12-31'
+  endPurchaseDate?: string;
 
   @IsOptional()
   @IsNumberString()
-  minAgeYears?: string; // e.g., '3' for assets older than 3 years
+  minAgeYears?: string;
 
   @IsOptional()
   @IsNumberString()
-  maxAgeYears?: string; // e.g., '5' for assets younger than 5 years
+  maxAgeYears?: string;
 
   @IsOptional()
   @IsNumberString()
-  warrantyPeriodMonths?: string; // e.g., '24' for assets with 2-year warranty
+  warrantyPeriodMonths?: string;
 
   @IsOptional()
   @IsString()
@@ -158,7 +154,7 @@ export class InventoryReportDto {
 
   @IsOptional()
   @IsString()
-  unitId?: string; // Filter by unit (e.g., specific office or lab)
+  unitId?: string;
 
   @IsOptional()
   @IsString()
@@ -166,11 +162,11 @@ export class InventoryReportDto {
 
   @IsOptional()
   @IsEnum(DeviceType)
-  deviceType?: DeviceType; // e.g., 'LAPTOP', 'PRINTER'
+  deviceType?: DeviceType;
 
   @IsOptional()
   @IsString()
-  brand?: string; // Filters ITItem.brand or device-specific brand (e.g., desktopBrand)
+  brand?: string;
 
   @IsOptional()
   @IsString()
@@ -178,19 +174,19 @@ export class InventoryReportDto {
 
   @IsOptional()
   @IsString()
-  serialNumber?: string; // Filters device-specific serial numbers
+  serialNumber?: string;
 
   @IsOptional()
   @IsEnum(InventoryStatus)
-  status?: InventoryStatus; // e.g., 'ACTIVE', 'OBSOLETE'
+  status?: InventoryStatus;
 
   @IsOptional()
   @IsString()
-  processorType?: string; // For laptops/desktops
+  processorType?: string; 
 
   @IsOptional()
   @IsString()
-  tonerNumber?: string; // For printers
+  tonerNumber?: string;
 
   @IsOptional()
   @IsString()

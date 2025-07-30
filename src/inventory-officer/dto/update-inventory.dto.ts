@@ -60,7 +60,6 @@ export class UpdateDeviceDetailsDto {
   })
   exclusiveFields: boolean;
 
-  // Laptop-specific fields
   @ValidateIf(o => o.deviceType === 'LAPTOP')
   @IsOptional()
   @IsString()
@@ -120,7 +119,6 @@ export class UpdateDeviceDetailsDto {
   @Transform(({ value }) => value === 'true' || value === true)
   laptopSpiceworksMonitoring?: boolean | string | null;
 
-  // Desktop-specific fields
   @ValidateIf(o => o.deviceType === 'DESKTOP')
   @IsOptional()
   @IsString()
@@ -195,7 +193,6 @@ export class UpdateDeviceDetailsDto {
   @Transform(({ value }) => value === 'true' || value === true)
   desktopSpiceworksMonitoring?: boolean | string | null;
 
-  // Printer-specific fields
   @ValidateIf(o => o.deviceType === 'PRINTER')
   @IsOptional()
   @IsString()
@@ -221,7 +218,6 @@ export class UpdateDeviceDetailsDto {
   @IsOptional()
   printerTonerNumber?: string;
 
-  // UPS-specific fields
   @ValidateIf(o => o.deviceType === 'UPS')
   @IsOptional()
   @IsString()
@@ -237,7 +233,6 @@ export class UpdateDeviceDetailsDto {
   @IsString()
   upsSerialNumber?: string;
 
-  // Other-specific fields
   @ValidateIf(o => o.deviceType === 'OTHER')
   @IsOptional()
   @IsString()

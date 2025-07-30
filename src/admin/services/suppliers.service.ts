@@ -15,7 +15,6 @@ export class SuppliersService {
   async createSupplier(adminId: string, dto: CreateSupplierDto, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
 
-      // Generate Supplier Id
       const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>( 
         Prisma.sql`SELECT nextval('add_supplier_seq')`
       );
@@ -72,7 +71,6 @@ export class SuppliersService {
     });
   }
 
-   //Get all suppliers
    async getSuppliers() {
     return this.prisma.supplier.findMany({
       where: {
@@ -94,7 +92,6 @@ export class SuppliersService {
     });
   }
 
-  // Soft delete a supplier
   async softDeleteSupplier(
     supplierId: string,
     adminId: string,
@@ -102,7 +99,6 @@ export class SuppliersService {
     userAgent?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Find the supplier
       const supplier = await tx.supplier.findUnique({
         where: { id: supplierId },
       });
@@ -115,13 +111,11 @@ export class SuppliersService {
         throw new BadRequestException(`Supplier with ID ${supplierId} is already deleted`);
       }
 
-      // delete the supplier
       await tx.supplier.update({
         where: { id: supplierId },
         data: { deletedAt: new Date() },
       });
 
-      // Prepare audit log
       const oldState: Prisma.JsonObject = {
         supplierID: supplier.supplierID,
         name: supplier.name,

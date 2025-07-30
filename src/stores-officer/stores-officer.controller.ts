@@ -9,7 +9,6 @@ import { CreateStockReceivedDto, StockLevelsFilterDto } from './dto/create-stock
 export class StoresOfficerController {
   constructor(private readonly storesOfficerService: StoresOfficerService) {}
 
-  // Get all stock levels
   @Get('stock')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer', 'supervisor', 'admin')
@@ -17,7 +16,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.getStockLevels(filters);
   }
 
-  // Get all approved requisitions
   @Get('reqs/approved')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer','supervisor')
@@ -39,7 +37,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.getAllStockReceived();
   }
 
-// Issue Requisition
   @Patch('req/:reqId/issue')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer')
@@ -57,7 +54,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.issueRequisition(requisitionId, req.user.userId, data, req.ip, req.headers['user-agent']);
   }
 
-  //Get stock batches
   @Get('stock-batches')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer')
@@ -65,7 +61,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.getAvailableStockBatches(itItemId);
   }
 
-  //Get IT items
   @Get('it-items')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer','supervisor')
@@ -73,7 +68,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.getAvailableITItems();
   }
 
-  // Create Stock Received Entry
   @Post('stock-received/create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer')
@@ -81,7 +75,6 @@ export class StoresOfficerController {
     return this.storesOfficerService.createStockReceived(req.user.userId, dto, req.ip, req.headers['user-agent']);
   }
 
-  //Get suppliers
   @Get('suppliers')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('stores_officer','supervisor')

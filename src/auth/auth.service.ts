@@ -3,13 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'prisma/prisma.service';
 import { UserService } from 'users/user.service';
-// import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from 'audit/audit.service';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 
-// Payload types
 interface BaseJwtPayload {
   sub: string;
   type?: string;
@@ -36,7 +34,6 @@ interface ResetPasswordJwtPayload extends BaseJwtPayload {
 export class AuthService {
   constructor(
     @Inject(forwardRef(() => UserService))
-    private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,

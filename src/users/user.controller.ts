@@ -28,7 +28,6 @@ export class UserController {
     return this.userService.getUserRequisitions(req.user.userId, req.ip, req.headers['user-agent']);
   }
 
-  //Acknowledge receipt of Item
   @Post('reqs/acknowledge/:stockIssuedId')
   @UseGuards(JwtAuthGuard)
   async acknowledgeReceipt(
@@ -39,7 +38,7 @@ export class UserController {
     return this.userService.acknowledgeReceipt(req.user.userId, stockIssuedId, dto, req.ip, req.headers['user-agent']);
   }
 
-  //Get all pending Acknowledgements
+  // Acknowledgements
    @Get('reqs/pending-acknowledgments')
   @UseGuards(JwtAuthGuard)
   async getPendingAcknowledgments(@Request() req) {

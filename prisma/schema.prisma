@@ -77,9 +77,9 @@ enum AuditActionType {
   UNIT_MODIFIED
   UNIT_DELETED
   // Division Events
-  DIVISION_CREATED
-  DIVISION_MODIFIED
-  DIVISION_DELETED
+  // DIVISION_CREATED
+  // DIVISION_MODIFIED
+  // DIVISION_DELETED
 }
 
 enum DeviceType {
@@ -135,33 +135,33 @@ enum Priority {
 // Core Models
 // ========================
 
-model Division {
-  id          String      @id @default(uuid())
-  name        String
-  description String?    
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?   
+// model Division {
+//   id          String      @id @default(uuid())
+//   name        String
+//   description String?    
+//   createdAt   DateTime    @default(now())
+//   updatedAt   DateTime    @updatedAt
+//   deletedAt   DateTime?   
 
-  departments Department[] @relation("DivisionDepartments")
-  units       Unit[]       @relation("DivisionUnit")
-  users       User[]       @relation("DivisionUsers")
-  inventory   Inventory[]   @relation("DivisionInventory")
-  requisitions Requisition[] @relation("DivisionRequisitions")
-  maintenanceTickets MaintenanceTicket[] @relation("DivisionMaintenanceTickets")
-  stock       Stock[]      @relation("DivisionStock")
-  stockIssued StockIssued[] @relation("DivisionStockIssued")
-  stockReceived StockReceived[] @relation("DivisionStockReceived")
+//   departments Department[] @relation("DivisionDepartments")
+//   units       Unit[]       @relation("DivisionUnit")
+//   users       User[]       @relation("DivisionUsers")
+//   inventory   Inventory[]   @relation("DivisionInventory")
+//   requisitions Requisition[] @relation("DivisionRequisitions")
+//   maintenanceTickets MaintenanceTicket[] @relation("DivisionMaintenanceTickets")
+//   stock       Stock[]      @relation("DivisionStock")
+//   stockIssued StockIssued[] @relation("DivisionStockIssued")
+//   stockReceived StockReceived[] @relation("DivisionStockReceived")
 
-  @@unique([name])
-  @@map("divisions")
-}
+//   @@unique([name])
+//   @@map("divisions")
+// }
 
 model Department {
   id          String    @id @default(uuid())
   name        String
-  divisionId  String?
-  division    Division?  @relation("DivisionDepartments", fields: [divisionId], references: [id])
+  // divisionId  String?
+  // division    Division?  @relation("DivisionDepartments", fields: [divisionId], references: [id])
   location    String?
   deptApproverId String? @unique
   deptApprover User?   @relation("DepartmentApprover", fields: [deptApproverId], references: [id])
@@ -177,15 +177,15 @@ model Department {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@unique([name, divisionId])
+  // @@unique([name, divisionId])
   @@map("departments")
 }
 
 model Unit {
   id           String     @id @default(uuid())
   name         String     @unique
-  divisionId      String?       
-  division        Division?     @relation("DivisionUnit", fields: [divisionId], references: [id])
+  // divisionId      String?       
+  // division        Division?     @relation("DivisionUnit", fields: [divisionId], references: [id])
   departmentId String
   department   Department @relation("DepartmentUnits", fields: [departmentId], references: [id])
 
@@ -206,8 +206,8 @@ model User {
   password      String
   mustResetPassword Boolean @default(true)
   name         String?
-  divisionId   String?
-  division     Division?   @relation("DivisionUsers", fields: [divisionId], references: [id])
+  // divisionId   String?
+  // division     Division?   @relation("DivisionUsers", fields: [divisionId], references: [id])
   departmentId String?
   department   Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
   unitId       String?
@@ -337,8 +337,8 @@ model Inventory {
   stockReceived   StockReceived @relation("InventoryStockReceived", fields: [stockReceivedId], references: [id])
   userId          String
   user            User          @relation("UserInventory", fields: [userId], references: [id])
-  divisionId      String?       
-  division        Division?     @relation("DivisionInventory", fields: [divisionId], references: [id])
+  // divisionId      String?       
+  // division        Division?     @relation("DivisionInventory", fields: [divisionId], references: [id])
   departmentId    String
   department      Department    @relation("DepartmentInventory", fields: [departmentId], references: [id])
   unitId          String?
@@ -373,7 +373,7 @@ model Inventory {
 
   @@index([itItemId])
   @@index([status])
-  @@index([divisionId]) 
+  // @@index([divisionId]) 
   @@map("inventory")
 }
 
@@ -530,8 +530,8 @@ model Requisition {
   purpose            String
   unitId             String?
   unit               Unit?             @relation("UnitRequisitions", fields: [unitId], references: [id])
-  divisionId         String?          
-  division           Division?          @relation("DivisionRequisitions", fields: [divisionId], references: [id])
+  // divisionId         String?          
+  // division           Division?          @relation("DivisionRequisitions", fields: [divisionId], references: [id])
   departmentId       String
   department         Department        @relation("DepartmentRequisitions", fields: [departmentId], references: [id])
   roomNo             String?
@@ -553,7 +553,7 @@ model Requisition {
 
   @@index([staffId])
   @@index([status])
-  @@index([divisionId])
+  // @@index([divisionId])
   @@map("requisitions")
 }
 
@@ -572,8 +572,8 @@ model StockReceived {
   receivedBy       User      @relation("UserStockReceived", fields: [receivedById], references: [id])
   dateReceived     DateTime
   remarks          String?
-   divisionId      String?       
-  division        Division?     @relation("DivisionStockReceived", fields: [divisionId], references: [id])
+  //  divisionId      String?       
+  // division        Division?     @relation("DivisionStockReceived", fields: [divisionId], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
@@ -594,8 +594,8 @@ model Stock {
   itItemId        String    @unique
   itItem          ITItem    @relation("ITItemStock", fields: [itItemId], references: [id])
   quantityInStock Int
-   divisionId      String?       
-  division        Division?     @relation("DivisionStock", fields: [divisionId], references: [id])
+  //  divisionId      String?       
+  // division        Division?     @relation("DivisionStock", fields: [divisionId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -604,8 +604,8 @@ model Stock {
   @@index([itItemId])
   @@index([quantityInStock])
   @@index([itItemId, quantityInStock])
-  @@index([divisionId])
-  @@unique([itItemId, divisionId])
+  // @@index([divisionId])
+  // @@unique([itItemId, divisionId])
   @@map("stocks")
 }
 
@@ -624,8 +624,8 @@ model StockIssued {
   issueDate        DateTime
   disbursementNote String? 
   remarks          String?
-   divisionId      String?       
-  division        Division?     @relation("DivisionStockIssued", fields: [divisionId], references: [id])
+  //  divisionId      String?       
+  // division        Division?     @relation("DivisionStockIssued", fields: [divisionId], references: [id])
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   deletedAt        DateTime?
@@ -640,7 +640,7 @@ model StockIssued {
   @@index([requestDate])
   @@index([requisitionId, stockBatchId])
   @@map("stock_issued")
-  @@index([divisionId])
+  // @@index([divisionId])
   @@unique([requisitionId, itItemId])
 }
 
@@ -657,8 +657,8 @@ model MaintenanceTicket {
   issueType              IssueType
   unitId                 String?
   unit                   Unit?      @relation("UnitMaintenanceTickets", fields: [unitId], references: [id])
-  divisionId             String?  
-  division               Division?  @relation("DivisionMaintenanceTickets", fields: [divisionId], references: [id])
+  // divisionId             String?  
+  // division               Division?  @relation("DivisionMaintenanceTickets", fields: [divisionId], references: [id])
   departmentId           String
   department             Department @relation("DepartmentMaintenanceTickets", fields: [departmentId], references: [id])
   description            String
@@ -680,7 +680,7 @@ model MaintenanceTicket {
   @@index([technicianReceivedById])
   @@index([priority])
   @@index([auditedById])
-  @@index([divisionId])
+  // @@index([divisionId])
   @@index([departmentId])
   @@index([departmentId, unitId])
   @@index([dateLogged])

@@ -12,7 +12,6 @@ export class AdminITItemsService {
     private auditService: AuditService,
   ) {}
 
-    // fetch available IT items
     async getAvailableITItems() {
       return this.prisma.iTItem.findMany({
         where: {
@@ -33,13 +32,11 @@ export class AdminITItemsService {
     
   async createITItem(adminId: string, dto: CreateITItemDto, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
-      // Validate supplier if provided
       if (dto.supplierId) {
         const supplier = await tx.supplier.findUnique({ where: { id: dto.supplierId } });
         if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found`);
       }
 
-      // Generate itemID using a sequence
       const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>( 
         Prisma.sql`SELECT nextval('it_item_seq')`
       );
@@ -60,7 +57,6 @@ export class AdminITItemsService {
         },
       });
 
-      // Create initial Stock entry with zero quantity
       await tx.stock.create({
         data: {
           itItemId: itItem.id,
@@ -97,7 +93,6 @@ export class AdminITItemsService {
     });
   }
 
-   // Soft delete an IT item
    async softDeleteITItem(
     itItemId: string,
     adminId: string,
@@ -123,7 +118,6 @@ export class AdminITItemsService {
         data: { deletedAt: new Date() },
       });
 
-      // Soft delete associated Stock record (if it exists)
       if (itItem.stock) {
         await tx.stock.update({
           where: { id: itItem.stock.id },

@@ -39,17 +39,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: any, payload: JwtPayload) {
-    // Handle reset-password tokens
     if ('type' in payload && payload.type === 'reset-password') {
       return { userId: payload.sub };
     }
 
-    // Handle temp-login tokens
     if ('type' in payload && payload.type === 'temp-login') {
       return { userId: payload.sub, staffId: payload.staffId };
     }
 
-    // Handle regular login tokens
     const loginPayload = payload as LoginJwtPayload;
     const isResetPasswordRoute = req.url === '/auth/reset-password' || req.originalUrl === '/auth/reset-password';
     if (loginPayload.mustResetPassword && !isResetPasswordRoute) {

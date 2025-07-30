@@ -10,7 +10,7 @@ async function main() {
       itItemId: 'IT-001',
       quantityIssued: 1,
       requestDate: new Date('2025-02-23'),
-      issuedByStaffId: '005', // Steve
+      issuedByStaffId: '005',
       issueDate: new Date('2025-02-25'),
       disbursementNote: 'Issued to supervisor workstation',
       remarks: 'Desktop delivered to Room 202',
@@ -20,7 +20,7 @@ async function main() {
       itItemId: 'IT-002',
       quantityIssued: 1,
       requestDate: new Date('2025-02-24'),
-      issuedByStaffId: '005', // Steve
+      issuedByStaffId: '005',
       issueDate: new Date('2025-02-26'),
       disbursementNote: 'Issued to technician for replacement',
       remarks: 'Laptop delivered to Tech Lab',
@@ -30,7 +30,7 @@ async function main() {
       itItemId: 'IT-004',
       quantityIssued: 2,
       requestDate: new Date('2025-02-25'),
-      issuedByStaffId: '005', // Steve
+      issuedByStaffId: '005',
       issueDate: new Date('2025-02-27'),
       disbursementNote: 'Issued toner as alternative to printer',
       remarks: 'Consumable for warehouse printers',
@@ -113,7 +113,7 @@ async function main() {
           supplier: { connect: { id: stockReceived.supplierId } },
           warrantyPeriod: stockReceived.warrantyPeriod,
           purchaseDate: stockReceived.lpoDate,
-          status: InventoryStatus.ACTIVE, // Changed from ACTIVE to IN_USE
+          status: InventoryStatus.ACTIVE,
           remarks: stock.remarks,
         },
       });

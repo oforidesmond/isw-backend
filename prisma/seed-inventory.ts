@@ -44,14 +44,14 @@ async function main() {
     });
   }
 
-  // Seed StockReceived (linked to Alice Admin and IT items)
+  // Seed StockReceived
   const stockReceived = [
     { lpoReference: 'GCB/PD/FA/2/001', voucherNumber: '0005453', lpoDate: new Date('2023-01-20'), itItemId: 'IT-001', quantityReceived: 5, supplierId: 'SUP-001', warrantyPeriod: 36, receivedByEmail: 'steve.stores@example.com', dateReceived: new Date('2023-01-25'), remarks: 'Batch of desktops' },
     { 
-      lpoReference: 'GCB/PD/FA/2/001', // Same LPO as above
-      voucherNumber: '0005453', // Same voucher as above
+      lpoReference: 'GCB/PD/FA/2/001',
+      voucherNumber: '0005453',
       lpoDate: new Date('2023-01-20'), 
-      itItemId: 'IT-003', // Printers
+      itItemId: 'IT-003',
       quantityReceived: 3, 
       supplierId: 'SUP-001', 
       warrantyPeriod: 12, 

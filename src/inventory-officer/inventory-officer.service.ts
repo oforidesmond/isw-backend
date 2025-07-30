@@ -24,7 +24,6 @@ export class InventoryOfficerService {
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
-   //Get device fields
    async getDeviceFields() {
     return {
       LAPTOP: [
@@ -78,7 +77,6 @@ export class InventoryOfficerService {
     };
   }
 
-  // Get All Inventory Items
   async getAllInventory() {
     return this.prisma.inventory.findMany({
       where: { deletedAt: null },
@@ -129,7 +127,6 @@ export class InventoryOfficerService {
     });
   }
 
-  //Update Inventory Main Fields (eg., userId, departmentId)
   async updateInventory(
     inventoryId: string,
     officerId: string,
@@ -212,7 +209,6 @@ export class InventoryOfficerService {
         details: { itItemId: inventory.itItemId, emailsQueued: { storesOfficer: false } },
       };
 
-      // Notify stores officer if userId, departmentId, or unitId changed
       if (notifyFieldsChanged.userId || notifyFieldsChanged.departmentId || notifyFieldsChanged.unitId) {
         const storesOfficer = await tx.user.findFirst({
           where: { roles: { some: { role: { name: 'stores_officer' } } }, isActive: true },
@@ -273,7 +269,6 @@ export class InventoryOfficerService {
     });
   }
 
-  //Update Inventory Device-Specific Details (eg., LaptopModel)
   async updateDeviceDetails(
     inventoryId: string,
     officerId: string,
@@ -282,7 +277,6 @@ export class InventoryOfficerService {
     userAgent?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Fetch inventory details
       const inventory = await tx.inventory.findUnique({
         where: { id: inventoryId },
         include: { itItem: { select: { deviceType: true, itemClass: true } } },
@@ -301,7 +295,6 @@ export class InventoryOfficerService {
       let entityId: string;
       let newState: any;
   
-      // Define required and allowed fields for each device type
       const requiredFields: { [key: string]: string[] } = {
         LAPTOP: ['laptopBrand', 'laptopModel', 'laptopSerialNumber'],
         DESKTOP: ['desktopBrand', 'desktopModel', 'desktopSerialNumber'],
@@ -345,20 +338,17 @@ export class InventoryOfficerService {
         OTHER: ['otherBrand', 'otherModel', 'otherSerialNumber', 'otherMacAddress', 'deviceTypeOther'],
       };
   
-      // Check for required fields
       const missingRequiredFields = requiredFields[dto.deviceType]?.filter(field => dto[field] === undefined || dto[field] === null);
       if (missingRequiredFields?.length > 0) {
         throw new BadRequestException(`Missing required fields for ${dto.deviceType}: ${missingRequiredFields.join(', ')}`);
       }
   
-      // Check for invalid fields
       const providedFields = Object.keys(dto).filter(key => key !== 'deviceType' && dto[key] !== undefined);
       const invalidFields = providedFields.filter(field => !allowedFields[dto.deviceType]?.includes(field));
       if (invalidFields.length > 0) {
         throw new BadRequestException(`Invalid fields for ${dto.deviceType}: ${invalidFields.join(', ')}`);
       }
 
-       // Helper function to build update and create data
        const buildUpdateData = (fields: string[], dto: UpdateDeviceDetailsDto) => {
         const updateData: any = {};
         const createData: any = { inventoryId };
@@ -550,7 +540,6 @@ export class InventoryOfficerService {
     throw new BadRequestException('Invalid report type. Must be: inventory');
   }
 
-  // Convert warrantyPeriod to number if it's a string
   if (typeof filters.warrantyPeriod === 'string') {
     const parsedWarranty = parseInt(filters.warrantyPeriod, 10);
     if (isNaN(parsedWarranty)) {
@@ -559,7 +548,6 @@ export class InventoryOfficerService {
     filters.warrantyPeriod = parsedWarranty;
   }
 
-  // Validate dates
   if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
     throw new BadRequestException('Invalid startDate format');
   }
@@ -570,7 +558,6 @@ export class InventoryOfficerService {
     throw new BadRequestException('startDate must be before endDate');
   }
 
-  // Build where clause
   const where: any = {
     deletedAt: null,
     itItem: { itemClass: 'FIXED_ASSET' },

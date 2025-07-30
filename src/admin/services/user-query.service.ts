@@ -71,7 +71,6 @@ export class UserQueryService {
     });
   }
 
-   // Get audit logs with filtering and pagination
   async getAuditLogs({
     actionType,
     entityType,
@@ -87,12 +86,10 @@ export class UserQueryService {
     skip?: number;
     take?: number;
   }) {
-    // Validate pagination parameters
     if (skip < 0 || take < 1) {
       throw new BadRequestException('Invalid pagination parameters');
     }
 
-    // Build where clause for filtering
     const where: Prisma.AuditLogWhereInput = {
       deletedAt: null,
       ...(actionType && { actionType }),
@@ -107,7 +104,6 @@ export class UserQueryService {
         : {}),
     };
 
-    // Fetch audit logs
     const auditLogs = await this.prisma.auditLog.findMany({
       where,
       select: {

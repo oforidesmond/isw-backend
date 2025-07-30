@@ -5,7 +5,6 @@ import * as crypto from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. Seed roles
   const roles = [
     'admin',
     'supervisor',
@@ -25,7 +24,6 @@ async function main() {
     });
   }
 
-  // 2. Seed permissions
   const permissions = [
     { resource: 'admin', actions: ['read', 'create', 'update', 'delete'] },
     { resource: 'hardware', actions: ['read', 'create', 'update'] },
@@ -45,7 +43,6 @@ async function main() {
     });
   }
 
-  // 3. Assign permissions to roles
   const rolePermissions = {
     admin: ['admin'],
     supervisor: ['supervisor'],
@@ -73,7 +70,6 @@ async function main() {
     }
   }
 
-  // 4. Seed departments
   const departments = [
     { name: 'it', deptApproverStaffId: '008' },
     { name: 'finance', deptApproverStaffId: '007' },
@@ -88,7 +84,6 @@ async function main() {
     });
   }
 
-  // 5. Seed units
   const units = [
     { name: 'network', departmentName: 'it' },
     { name: 'hardware', departmentName: 'it' },
@@ -114,7 +109,6 @@ async function main() {
     });
   }
 
-  // 6. Seed users
   const testUsers = [
     {
       staffId: '001',
@@ -231,7 +225,6 @@ async function main() {
     console.log(`User ${userData.email} created with password: ${randomPassword}`);
   }
 
-  // 7. Update departments with approvers
   for (const dept of departments) {
     const approver = dept.deptApproverStaffId
       ? await prisma.user.findUnique({ where: { staffId: dept.deptApproverStaffId } })

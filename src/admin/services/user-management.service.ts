@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
-// import { MailerService } from '@nestjs-modules/mailer';
 import { JwtService } from '@nestjs/jwt';
 import { AuditService } from 'audit/audit.service';
 import { CreateUserDto } from 'admin/dto/create-user.dto';
@@ -32,7 +31,6 @@ export class UserManagementService {
     private auditService: AuditService,
   ) {}
 
-  // Get all active departments
   async getAllDepartments(includeUnits: boolean = false) {
     return this.prisma.department.findMany({
       where: {
@@ -62,15 +60,13 @@ export class UserManagementService {
     });
   }
 
-  // Create a new department
   async createDepartment(
     data: CreateDepartmentDto,
     adminId: string,
     ipAddress?: string,
     userAgent?: string,
   ) {
-    // Check if department name already exists
-    const existingDepartment = await this.prisma.department.findUnique({
+    const existingDepartment = await this.prisma.department.findFirst({
       where: { name: data.name },
     });
 
@@ -79,7 +75,6 @@ export class UserManagementService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Create the department
       const department = await tx.department.create({
         data: {
           name: data.name,
@@ -87,7 +82,6 @@ export class UserManagementService {
         },
       });
 
-      // Prepare audit log
       const newState: Prisma.JsonObject = {
         name: department.name,
         location: department.location,
@@ -106,7 +100,6 @@ export class UserManagementService {
         details: { createdBy: adminId },
       };
 
-      // Log the action
       await this.auditService.logAction(auditPayload, tx);
 
       return {
@@ -116,7 +109,6 @@ export class UserManagementService {
     });
   }
 
-  // Get all active units
   async getAllUnits() {
     return this.prisma.unit.findMany({
       where: {
@@ -140,7 +132,6 @@ export class UserManagementService {
     });
   }
 
-  // Create a new unit
   async createUnit(
     data: CreateUnitDto,
     adminId: string,
@@ -200,7 +191,6 @@ export class UserManagementService {
     });
   }
 
-   // Soft delete a department
    async softDeleteDepartment(
     departmentId: string,
     adminId: string,
@@ -254,7 +244,6 @@ export class UserManagementService {
     });
   }
 
-  // Soft delete a unit
   async softDeleteUnit(
     unitId: string,
     adminId: string,
@@ -458,7 +447,6 @@ export class UserManagementService {
     });
   }
 
-  //restore the user
   async restoreUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { staffId } });
@@ -506,7 +494,6 @@ export class UserManagementService {
     });
   }
 
-  //permanent user deletion for testing
   async permanentlyDeleteUser(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
         const user = await tx.user.findUnique({ where: { staffId } });
@@ -522,7 +509,6 @@ export class UserManagementService {
     });
   }
 
-  //Update User Details
   async updateUser(staffId: string, data: UpdateUserDto, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -594,7 +580,6 @@ export class UserManagementService {
     });
   }
 
-  //Manually Reset user password
   async resetPassword(staffId: string, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { staffId } });
@@ -613,7 +598,6 @@ export class UserManagementService {
         },
       });
 
-      // Generate a temp login token
       const loginTokenPayload = {
         staffId: user.staffId,
         tempPassword,
@@ -668,7 +652,6 @@ export class UserManagementService {
     });
   }
 
-  // toggle activeStatus of User
   async toggleStatus(staffId: string, isActive: boolean, adminId: string, ipAddress?: string, userAgent?: string) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { staffId } });
@@ -714,7 +697,6 @@ export class UserManagementService {
     });
   }
 
-  //Assign dept approver to a user
   async assignDeptApprover(
     staffId: string,
     departmentId: string,

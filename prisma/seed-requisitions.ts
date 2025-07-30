@@ -24,7 +24,6 @@ async function main() {
     tax: await prisma.unit.findUnique({ where: { name: 'tax' } }),
   };
 
- // Check for missing data
  for (const [key, user] of Object.entries(staff)) {
   if (!user) console.error(`Staff user ${key} not found`);
 }
@@ -37,7 +36,6 @@ for (const [key, dept] of Object.entries(departments)) {
 for (const [key, unit] of Object.entries(units)) {
   if (!unit) console.error(`Unit ${key} not found`);
 }
-  // Define test requisitions
   const requisitions = [
     {
       requisitionID: 'REQ-2025-001',
@@ -87,7 +85,6 @@ for (const [key, unit] of Object.entries(units)) {
 
   for (const req of requisitions) {
 
-    // Create or update requisition
     await prisma.requisition.upsert({
       where: { requisitionID: req.requisitionID },
       update: {},
@@ -105,7 +102,7 @@ for (const [key, unit] of Object.entries(units)) {
         itdApprover: req.itdApproverId ? { connect: { id: req.itdApproverId } } : undefined,
         status: req.status,
         declineReason: req.declineReason,
-        approvalSignatures: req.approvalSignatures ? JSON.stringify(req.approvalSignatures) : undefined, // JSON as string
+        approvalSignatures: req.approvalSignatures ? JSON.stringify(req.approvalSignatures) : undefined,
         createdAt: new Date(),
       },
     });

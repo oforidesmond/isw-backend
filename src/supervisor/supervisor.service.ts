@@ -110,7 +110,7 @@ export class SupervisorService {
       if (ticket.dateResolved) {
         acc[techId].resolved += 1;
         const resolutionTime =
-          (ticket.dateResolved.getTime() - ticket.dateLogged.getTime()) / (1000 * 60 * 60); // Hours
+          (ticket.dateResolved.getTime() - ticket.dateLogged.getTime()) / (1000 * 60 * 60);
         acc[techId].avgResolutionTime =
           (acc[techId].avgResolutionTime * (acc[techId].resolved - 1) + resolutionTime) /
           acc[techId].resolved;
@@ -212,7 +212,7 @@ export class SupervisorService {
         .filter((r) => r.issuedAt || r.status === 'DEPT_DECLINED' || r.status === 'ITD_DECLINED')
         .reduce((acc, r) => {
           const endTime = r.issuedAt || r.updatedAt;
-          const timeDiff = (endTime.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60); // Hours
+          const timeDiff = (endTime.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60);
           return acc + timeDiff;
         }, 0) / (requisitions.filter((r) => r.issuedAt || r.status === 'DEPT_DECLINED' || r.status === 'ITD_DECLINED').length || 1),
     };
@@ -325,7 +325,7 @@ async getRequisitionFulfillmentReport(dto: RequisitionReportDto) {
       averageFulfillmentTimeHours: requisitions
         .filter((r) => r.status === 'PROCESSED' && r.issuedAt)
         .reduce((acc, r) => {
-          const timeDiff = (r.issuedAt.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60); // Hours
+          const timeDiff = (r.issuedAt.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60);
           return acc + timeDiff;
         }, 0) / (requisitions.filter((r) => r.status === 'PROCESSED' && r.issuedAt).length || 1),
     };
@@ -459,7 +459,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
     };
   }
 
-  //Stock Reports
   async getStockInventoryLevels(dto: StockReportDto) {
     const where: Prisma.StockWhereInput = { deletedAt: null };
 
@@ -482,7 +481,7 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
 
     const summary = {
       totalItems: stocks.length,
-      lowStockItems: stocks.filter((s) => s.quantityInStock <= 10).length, // Default threshold of 10
+      lowStockItems: stocks.filter((s) => s.quantityInStock <= 10).length,
       totalQuantity: stocks.reduce((acc, s) => acc + s.quantityInStock, 0),
     };
 
@@ -616,7 +615,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
       }),
     ]);
 
-      // Define the type for the accumulator
       interface Movement {
         received: number;
         issued: number;
@@ -628,12 +626,11 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
         movements: Record<string, Movement>;
       }
 
-    // Group by item and month
     const movementsByItem = [...stockReceived, ...stockIssued].reduce(
       (acc: Record<string, ItemMovement>, record) => {
         const itemId = record.itItemId;
         const date = 'dateReceived' in record ? record.dateReceived : record.issueDate;
-        const month = date.toISOString().slice(0, 7); // e.g., '2025-04'
+        const month = date.toISOString().slice(0, 7);
   
         if (!acc[itemId]) {
           acc[itemId] = {
@@ -680,7 +677,7 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
   }
 
   async getLowStockAlerts(dto: StockReportDto) {
-    const minQuantity = parseInt(dto.minQuantity || '10', 10); // Default threshold of 10
+    const minQuantity = parseInt(dto.minQuantity || '10', 10);
     if (isNaN(minQuantity) || minQuantity < 0) {
       throw new BadRequestException('Invalid minimum quantity');
     }
@@ -700,11 +697,10 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
       orderBy: { quantityInStock: 'asc' },
     });
 
-    // Get recent issuances for context
     const recentIssuances = await this.prisma.stockIssued.findMany({
       where: {
         itItemId: { in: stocks.map((s) => s.itItemId) },
-        issueDate: { gte: new Date(new Date().setMonth(new Date().getMonth() - 1)) }, // Last 30 days
+        issueDate: { gte: new Date(new Date().setMonth(new Date().getMonth() - 1)) },
       },
       include: { issuedBy: { select: { name: true } } },
       orderBy: { issueDate: 'desc' },
@@ -736,7 +732,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
  async getInventoryAgeReport(dto: InventoryReportDto) {
     const where: Prisma.InventoryWhereInput = { deletedAt: null };
 
-    // Date-based filters
     if (dto.startPurchaseDate || dto.endPurchaseDate || dto.minAgeYears || dto.maxAgeYears) {
       where.purchaseDate = {};
       if (dto.startPurchaseDate) {
@@ -746,7 +741,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
         where.purchaseDate.lte = new Date(dto.endPurchaseDate);
       }
 
-      // Age-based filters
       const currentDate = new Date();
       if (dto.minAgeYears) {
         const minAgeDate = new Date(currentDate);
@@ -760,12 +754,10 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
       }
     }
 
-    // Warranty period filter
     if (dto.warrantyPeriodMonths) {
       where.warrantyPeriod = parseInt(dto.warrantyPeriodMonths, 10);
     }
 
-    // Other filters
     if (dto.departmentId) where.departmentId = dto.departmentId;
     if (dto.unitId) where.unitId = dto.unitId;
     if (dto.itItemId) where.itItemId = dto.itItemId;
@@ -797,7 +789,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
       const warrantyExpiry = new Date(purchaseDate);
       warrantyExpiry.setMonth(warrantyExpiry.getMonth() + asset.warrantyPeriod);
 
-      // Determine device-specific details based on deviceType
       let deviceDetails: Record<string, any> = {};
       if (asset.desktopDetails) {
         deviceDetails = {
@@ -882,7 +873,6 @@ async getDeclinedRequisitionsAnalysis(dto: RequisitionReportDto) {
   async getInventoryDeviceDetailsReport(dto: InventoryReportDto) {
     const where: Prisma.InventoryWhereInput = { deletedAt: null };
 
-    // Device detail filters
     if (dto.deviceType) {
       where.itItem = { deviceType: { equals: dto.deviceType } };
     }

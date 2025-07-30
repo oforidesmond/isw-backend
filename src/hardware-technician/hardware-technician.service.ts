@@ -24,7 +24,6 @@ export class HardwareTechnicianService {
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 
-  // Get all technicians
   async getHardwareTechnicians() {
     return this.prisma.user.findMany({
       where: {
@@ -50,7 +49,6 @@ export class HardwareTechnicianService {
     });
   }
 
-  // Fetch all fixed assets for hardware technician
   async getAllFixedAssets() {
     return this.prisma.inventory.findMany({
       where: {
@@ -98,7 +96,6 @@ export class HardwareTechnicianService {
     });
   }
 
-  //Create Ticket
   async createMaintenanceTicket(
     technicianId: string,
     dto: CreateMaintenanceTicketDto,
@@ -137,7 +134,6 @@ export class HardwareTechnicianService {
         if (!returnedBy) throw new NotFoundException(`Technician ${dto.technicianReturnedById} not found`);
       }
 
-      // Generate TicketID using a sequence
       const sequenceResult = await tx.$queryRaw<{ nextval: bigint }[]>( 
         Prisma.sql`SELECT nextval('ticket_id_seq')`
       );
@@ -337,7 +333,6 @@ export class HardwareTechnicianService {
     });
   }
 
-  //All users
   async getUsers() {
     return this.prisma.user.findMany({
       where: {
@@ -394,7 +389,6 @@ export class HardwareTechnicianService {
       if (dto.dateResolvedTo) where.dateResolved.lte = new Date(dto.dateResolvedTo);
     }
     if (dto.status) {
-      // Map custom status to fields (infer from dateResolved)
       if (dto.status === 'OPEN') where.dateResolved = null;
       if (dto.status === 'RESOLVED') where.dateResolved = { not: null };
     }
@@ -446,7 +440,6 @@ export class HardwareTechnicianService {
 
     const query = dto.q.trim().toLowerCase();
 
-    // Search by assetId (Inventory.id)
     const byAssetId = await this.prisma.inventory.findMany({
       where: {
         id: { contains: query, mode: 'insensitive' },
@@ -466,7 +459,6 @@ export class HardwareTechnicianService {
       },
     });
 
-    // Search by user name
     const byUserName = await this.prisma.inventory.findMany({
       where: {
         user: { name: { contains: query, mode: 'insensitive' } },
@@ -486,7 +478,6 @@ export class HardwareTechnicianService {
       },
     });
 
-    // Search by serial number across device details
     const bySerialNumber = await this.prisma.inventory.findMany({
       where: {
         OR: [
@@ -512,7 +503,6 @@ export class HardwareTechnicianService {
       },
     });
 
-    // Combine and deduplicate results
     const combined = [...byAssetId, ...byUserName, ...bySerialNumber];
     const uniqueDevices = Array.from(new Map(combined.map((item) => [item.id, item])).values());
 
@@ -561,7 +551,6 @@ export class HardwareTechnicianService {
     throw new BadRequestException('Invalid report type. Must be: maintenance_tickets');
   }
 
-  // Validate dates
   if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
     throw new BadRequestException('Invalid startDate format');
   }
@@ -572,10 +561,8 @@ export class HardwareTechnicianService {
     throw new BadRequestException('startDate must be before endDate');
   }
 
-  // Build where clause
   const where: any = {
     deletedAt: null,
-    // Optionally restrict to tickets received by the current technician
     // technicianReceivedById: technicianId,
   };
   if (filters.startDate) where.dateLogged = { gte: new Date(filters.startDate) };

@@ -51,7 +51,6 @@ export class StoresOfficerService {
       ...(maxQuantity !== undefined && { quantityInStock: { lte: maxQuantity } }),
     };
 
-    // Fetch stock levels with pagination
     const [stockLevels, total, totalStockQuantity] = await Promise.all([
       this.prisma.stock.findMany({
         where,
@@ -69,7 +68,7 @@ export class StoresOfficerService {
         },
         // skip,
         // take: limit,
-        orderBy: { itItem: { brand: "asc" } }, // Sort by brand for consistency
+        orderBy: { itItem: { brand: "asc" } },
       }),
       this.prisma.stock.count({ where }),
       this.prisma.stock.aggregate({
@@ -80,7 +79,7 @@ export class StoresOfficerService {
       }),
     ]);
 
-    // Format the response
+    // Format response
     const formattedData = stockLevels.map((stock) => ({
       itItemId: stock.itItemId,
       itemID: stock.itItem.itemID,
@@ -243,7 +242,6 @@ export class StoresOfficerService {
       });
       inventoryId = inventory.id;
 
-      // Use ITItem.specifications
       const deviceDetails = itItem.specifications as Record<string, any> | null;
       if (deviceDetails && Object.keys(deviceDetails).length > 0) {
         switch (itItem.deviceType) {
@@ -351,7 +349,6 @@ export class StoresOfficerService {
   });
 };
 
-   // fetch available stock batches
    async getAvailableStockBatches(itItemId?: string) {
     return this.prisma.stockBatch.findMany({
       where: {
@@ -376,7 +373,6 @@ export class StoresOfficerService {
     });
   }
 
-  // fetch available IT items
   async getAvailableITItems() {
     return this.prisma.iTItem.findMany({
       where: {
@@ -397,7 +393,6 @@ export class StoresOfficerService {
     });
   }
 
-  // Create Stock Received
   async createStockReceived(
     storesOfficerId: string,
     dto: CreateStockReceivedDto,
@@ -467,7 +462,6 @@ export class StoresOfficerService {
     });
   }
 
-  //Get Suppliers
   async getSuppliers() {
     return this.prisma.supplier.findMany({
       where: { deletedAt: null },
@@ -504,13 +498,11 @@ export class StoresOfficerService {
     maxQuantity?: number;
   },
 ) {
-  // Validate reportType
   const validReportTypes = ['stock_received', 'stock_issued', 'requisitions', 'inventory', 'stock_levels'];
   if (!validReportTypes.includes(reportType)) {
     throw new BadRequestException(`Invalid report type. Must be one of: ${validReportTypes.join(', ')}`);
   }
 
-  // Validate dates
   if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
     throw new BadRequestException('Invalid startDate format');
   }
@@ -521,7 +513,6 @@ export class StoresOfficerService {
     throw new BadRequestException('startDate must be before endDate');
   }
 
-  // Validate quantities
   if (filters.minQuantity !== undefined && (isNaN(filters.minQuantity) || filters.minQuantity < 0)) {
     throw new BadRequestException('minQuantity must be a non-negative number');
   }
@@ -536,7 +527,6 @@ export class StoresOfficerService {
     throw new BadRequestException('minQuantity must not exceed maxQuantity');
   }
 
-  // Build base query filters
   const where: any = { deletedAt: null };
   if (filters.itItemId) where.itItemId = filters.itItemId;
   if (filters.itemClass) where.itItem = { ...where.itItem, itemClass: filters.itemClass };
@@ -554,7 +544,6 @@ export class StoresOfficerService {
   let data: any;
   let total: number;
 
-  // Query based on reportType
   switch (reportType) {
     case 'stock_received':
       [data, total] = await Promise.all([
@@ -693,7 +682,6 @@ export class StoresOfficerService {
       throw new BadRequestException('Unsupported report type');
   }
 
-  // Format data for stock_levels
   if (reportType === 'stock_levels') {
     data = data.map((stock) => ({
       itItemId: stock.itItemId,
@@ -707,7 +695,6 @@ export class StoresOfficerService {
     }));
   }
 
-  // Format data for stock_issued to include supplier and LPO/voucher details
   if (reportType === 'stock_issued') {
     data = data.map((item) => ({
       ...item,
@@ -720,7 +707,6 @@ export class StoresOfficerService {
     }));
   }
 
-  // Format data for inventory to include supplier and LPO/voucher details
   if (reportType === 'inventory') {
     data = data.map((item) => ({
       ...item,

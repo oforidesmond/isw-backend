@@ -3,10 +3,10 @@ import { IssueType, Priority } from '@prisma/client';
 
 export class CreateMaintenanceTicketDto {
   @IsString()
-  assetId: string; // Matches Inventory.id
+  assetId: string;
 
   @IsString()
-  userId: string; // The user reporting the issue
+  userId: string;
 
   @IsEnum(IssueType)
   issueType: IssueType;
