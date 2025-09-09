@@ -6,6 +6,7 @@ import { Prisma, RequisitionStatus } from '@prisma/client';
 import { AuditPayload } from 'admin/interfaces/audit-payload.interface';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { MailerService } from '@nestjs-modules/mailer';
 
 interface ExtendedAuditPayload extends AuditPayload {
   details: {
@@ -31,6 +32,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,     
     private auditService: AuditService,
+    private mailerService: MailerService, 
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) {}
 

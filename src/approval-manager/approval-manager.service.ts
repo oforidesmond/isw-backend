@@ -136,9 +136,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
   });
 }
 
-async declineRequisition(requisitionId: string, approverId: string, reason: string, ipAddress?: string, userAgent?: string) {
-
-  if (!reason) throw new BadRequestException('Decline reason is required');
+async declineRequisition(requisitionId: string, approverId: string, reason?: string, ipAddress?: string, userAgent?: string) {
 
   return this.prisma.$transaction(async (tx) => {
     const requisition = await tx.requisition.findUnique({

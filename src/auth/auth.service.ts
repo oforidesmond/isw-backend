@@ -34,6 +34,7 @@ interface ResetPasswordJwtPayload extends BaseJwtPayload {
 export class AuthService {
   constructor(
     @Inject(forwardRef(() => UserService))
+    private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
