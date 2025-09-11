@@ -212,7 +212,7 @@ export class AuthService {
 
     const resetTokenPayload: ResetPasswordJwtPayload = { sub: user.id, type: 'reset-password' };
     const resetToken = this.jwtService.sign(resetTokenPayload, { expiresIn: '15m' });
-    const resetUrl = `http://localhost:3001/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const resetUrl = `https://isw.cocobod.net/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     let emailQueued = false;
     await this.prisma.$transaction(async (tx) => {

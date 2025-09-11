@@ -334,7 +334,7 @@ export class UserManagementService {
         sub: user.id,
       };
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3 days' });
-      const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
+      const loginUrl = `https://isw.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
   
       let emailQueued = false;
       try {
@@ -605,7 +605,7 @@ export class UserManagementService {
         sub: user.id,
       };
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3d' });
-      const loginUrl = `http://localhost:3001/login-with-token?token=${encodeURIComponent(loginToken)}`;
+      const loginUrl = `https://isw.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
 
       let emailQueued = false;
       try {
