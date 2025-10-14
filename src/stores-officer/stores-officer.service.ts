@@ -301,9 +301,9 @@ export class StoresOfficerService {
             <p>Hello ${requisition.staff.name},</p>
             <p>Your requisition (${requisition.requisitionID}) has been processed and issued.</p>
             <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
-            <p>Please acknowledge receipt of the item(s) in your ISW dashboard to continue making new requisitions.</p>
+            <p>Please acknowledge receipt of the item(s) in your ITD-OPs dashboard to continue making new requisitions.</p>
 
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
@@ -328,7 +328,7 @@ export class StoresOfficerService {
             <p>Hello ${storesOfficer.name},</p>
             <p>You have successfully issued requisition (${requisition.requisitionID}).</p>
             <p>Item: ${itItem.brand} ${itItem.model} (Qty: ${data.quantity})</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },

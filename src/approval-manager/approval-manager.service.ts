@@ -93,7 +93,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
             <p>Hello ${requisition.staff.name},</p>
             <p>Your requisition (${requisition.requisitionID}) has been approved by the department.</p>
             <p>It is now pending ITD approval.</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
@@ -115,7 +115,7 @@ async approveRequisition(requisitionId: string, approverId: string, ipAddress?: 
             <p>Hello ${requisition.itdApprover.name},</p>
             <p>A requisition (${requisition.requisitionID}) has been approved by the requesting department and now awaits your approval.</p>
             <p>Please review it at your earliest convenience.</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
@@ -183,7 +183,7 @@ async declineRequisition(requisitionId: string, approverId: string, reason?: str
             <p>Your requisition (${requisition.requisitionID}) has been declined by the department.</p>
             <p>Reason: ${reason}</p>
             <p>Please contact us if you have questions.</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },

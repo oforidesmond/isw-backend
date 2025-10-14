@@ -250,8 +250,8 @@ export class InventoryOfficerService {
                       ? `<p>- Unit changed to: ${unit?.name || (dto.unitId === null ? 'None' : 'Unknown')}</p>`
                       : ''
                   }
-                  <p>Please review the changes in your ISW portal.</p>
-                  <p>Thanks,<br>ISW Team</p>
+                  <p>Please review the changes in your ITD-OPs portal.</p>
+                  <p>Thanks,<br>ITD-OPs Team</p>
                 `,
               },
               { attempts: 3, backoff: 5000 },

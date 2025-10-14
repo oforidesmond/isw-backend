@@ -15,7 +15,7 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') || 3000;
 
   app.enableCors({
-    origin: ['https://isw.cocobod.net', 'http://localhost:3001'],
+    origin: ['https://itd-ops.cocobod.net', 'http://localhost:3001'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization',
     credentials: true,

@@ -203,7 +203,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
           <p>Hello ${user.name},</p>
           <p>Your requisition (${requisitionID}) has been successfully submitted.</p>
           <p>It is now ${status === RequisitionStatus.PENDING_DEPT_APPROVAL ? 'pending department approval' : 'pending ITD approval'}.</p>
-          <p>Thanks,<br>ISW Team</p>
+          <p>Thanks,<br>ITD-OPs Team</p>
         `,
       },
       { attempts: 3, backoff: 5000 },
@@ -220,7 +220,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
             <p>Hello ${deptApprover.name},</p>
             <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
             <p>Please review it at your earliest convenience.</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
@@ -238,7 +238,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
             <p>Hello ${itdApprover.name},</p>
             <p>A new requisition (${requisitionID}) has been submitted and awaits your approval.</p>
             <p>Status: ${requisition.status}</p>
-            <p>Thanks,<br>ISW Team</p>
+            <p>Thanks,<br>ITD-OPs Team</p>
           `,
         },
         { attempts: 3, backoff: 5000 },
@@ -359,7 +359,7 @@ async createRequisition(userId: string, dto: CreateRequisitionDto, ipAddress?: s
             html: `
               <p>Hello ${user.name},</p>
               <p>You have successfully acknowledged receipt of ${stockIssued.itItem.brand} ${stockIssued.itItem.model} (Qty: ${stockIssued.quantityIssued}) for requisition ${stockIssued.requisition.requisitionID}.</p>
-              <p>Thanks,<br>ISW Team</p>
+              <p>Thanks,<br>ITD-OPs Team</p>
             `,
           },
           { attempts: 3, backoff: 5000 },

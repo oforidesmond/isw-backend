@@ -207,8 +207,8 @@ export class HardwareTechnicianService {
               ${dto.actionTaken ? `<p>Action Taken: ${dto.actionTaken}</p>` : ''}
               ${dto.dateResolved ? `<p>Resolved On: ${new Date(dto.dateResolved).toLocaleDateString()}</p>` : ''}
               ${dto.remarks ? `<p>Remarks: ${dto.remarks}</p>` : ''}
-              <p>Please check the ISW portal for updates.</p>
-              <p>Thanks,<br>ISW Team</p>
+              <p>Please check the ITD-OPs portal for updates.</p>
+              <p>Thanks,<br>ITD-OPs Team</p>
             `,
           },
           { attempts: 3, backoff: 5000 },
@@ -315,8 +315,8 @@ export class HardwareTechnicianService {
                 <p>Action Taken: ${dto.actionTaken || ticket.actionTaken || 'N/A'}</p>
                 <p>Resolved On: ${new Date(dto.dateResolved).toLocaleDateString()}</p>
                 ${dto.remarks ? `<p>Remarks: ${dto.remarks}</p>` : ''}
-                <p>Please check the ISW portal for details.</p>
-                <p>Thanks,<br>ISW Team</p>
+                <p>Please check the ITD-OPs portal for details.</p>
+                <p>Thanks,<br>ITD-OPs Team</p>
               `,
             },
             { attempts: 3, backoff: 5000 },

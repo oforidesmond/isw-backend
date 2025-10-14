@@ -334,7 +334,7 @@ export class UserManagementService {
         sub: user.id,
       };
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3 days' });
-      const loginUrl = `https://isw.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
+      const loginUrl = `https://itd-ops.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
   
       let emailQueued = false;
       try {
@@ -342,13 +342,13 @@ export class UserManagementService {
           'send-email',
           {
             to: data.email,
-            subject: 'Welcome to ISW App',
+            subject: 'Welcome to ITD-OPs',
             html: `
               <p>Hello ${data.name},</p>
               <p>Your account has been created.</p>
               <p>Click <a href="${loginUrl}">here</a> to log in and reset your password immediately. Please note that this link is only valid for the next 3 days.</p>
               <p>If you have any issues, please don't hesitate to contact us.</p>
-              <p>Thanks,<br>ISW Team</p>
+              <p>Thanks,<br>ITD-OPs Team</p>
             `,
           },
           { attempts: 3, backoff: 5000 },
@@ -605,7 +605,7 @@ export class UserManagementService {
         sub: user.id,
       };
       const loginToken = this.jwtService.sign(loginTokenPayload, { expiresIn: '3d' });
-      const loginUrl = `https://isw.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
+      const loginUrl = `https://itd-ops.cocobod.net/login-with-token?token=${encodeURIComponent(loginToken)}`;
 
       let emailQueued = false;
       try {
@@ -619,7 +619,7 @@ export class UserManagementService {
               <p>An admin has reset your password.</p>
               <p>Click <a href="${loginUrl}">here</a> to log in with your temporary password and reset it. This link expires in 3 days.</p>
               <p>If you didn’t request this, contact support immediately.</p>
-              <p>Thanks,<br>ISW Team</p>
+              <p>Thanks,<br>ITD-OPs Team</p>
             `,
           },
           { attempts: 3, backoff: 5000 },
@@ -756,7 +756,7 @@ export class UserManagementService {
               <p>You have been assigned as the Department Requisitions Approver for ${department.name.toUpperCase()}.</p>
               <p>You will now be responsible for approving or declining requisitions for this department.</p>
               <p>If you have any questions, please contact the admin team.</p>
-              <p>Thanks,<br>ISW Team</p>
+              <p>Thanks,<br>ITD-OPs Team</p>
             `,
           },
           { attempts: 3, backoff: 5000 },

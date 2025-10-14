@@ -212,7 +212,7 @@ export class AuthService {
 
     const resetTokenPayload: ResetPasswordJwtPayload = { sub: user.id, type: 'reset-password' };
     const resetToken = this.jwtService.sign(resetTokenPayload, { expiresIn: '15m' });
-    const resetUrl = `https://isw.cocobod.net/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const resetUrl = `https://itd-ops.cocobod.net/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     let emailQueued = false;
     await this.prisma.$transaction(async (tx) => {
@@ -235,13 +235,13 @@ export class AuthService {
       'send-email',
       {
         to: email,
-        subject: 'Reset Your ISW Account Password',
+        subject: 'Reset Your ITD-OPs Account Password',
         html: `
           <p>Hello ${user.name},</p>
           <p>You requested a password reset</p>
           <p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 15 minutes.</p>
           <p>If you didn’t request this, ignore this email.</p>
-          <p>Thanks,<br>ISW Team</p>
+          <p>Thanks,<br>ITD-OPs Team</p>
         `,
       },
       { attempts: 3, backoff: 5000 },
